@@ -1,0 +1,12 @@
+{
+  "name": "roco-tcg-friend-battle",
+  "version": "0.49.0",
+  "private": true,
+  "description": "洛克卡牌好友约战测试版",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node pvp/server.cjs"
+  }
+}

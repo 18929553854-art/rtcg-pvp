@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>洛克卡牌</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg:#101827;
+  --panel:#192438;
+  --border:#30405a;
+  --text:#edf3fc;
+  --muted:#a7b7cd;
+  --accent:#8bbcff;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:"Microsoft YaHei","PingFang SC",sans-serif;
+}
+button,input,select { font:inherit; }
+button { cursor:pointer; }
+button:disabled { cursor:default; opacity:.4; }
+button,input,select {
+  border:1px solid var(--border);
+  border-radius:9px;
+  background:#24334b;
+  color:var(--text);
+}
+button { padding:10px 15px; }
+input,select { padding:12px; min-width:0; }
+:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+[hidden] { display:none !important; }
+main { max-width:1450px; margin:auto; padding:28px 22px; }
+h1,h2,h3,p { margin-top:0; }
+.muted { color:var(--muted); line-height:1.7; }
+.header,.row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+}
+.header { margin-bottom:24px; }
+.header h1 { margin:0; font-size:26px; }
+.primary { background:#315e96; border-color:#639ee8; }
+.danger { color:#ffb6b6; }
+.panel {
+  padding:20px;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:15px;
+  margin-bottom:20px;
+}
+.menu {
+  min-height:75vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.menu-inner { width:min(760px,100%); text-align:center; }
+.menu h1 { font-size:38px; margin-bottom:12px; }
+.menu-options { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:35px; }
+.menu-button {
+  padding:40px 20px;
+  background:var(--panel);
+  border-radius:18px;
+  transition:transform .2s,border-color .2s;
+}
+.menu-button:hover { transform:translateY(-4px); border-color:var(--accent); }
+.menu-button strong { display:block; font-size:24px; margin-bottom:12px; }
+.menu-button span { color:var(--muted); }
+.toolbar {
+  display:grid;
+  grid-template-columns:minmax(160px,1fr) repeat(3,minmax(100px,150px));
+  gap:10px;
+  margin-bottom:15px;
+}
+.status { color:var(--muted); font-size:14px; }
+.card-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(155px,1fr));
+  gap:16px;
+}
+.card-tile { min-width:0; }
+.card-view {
+  display:block;
+  width:100%;
+  padding:9px;
+  text-align:left;
+  background:var(--panel);
+  border-radius:12px;
+}
+.card-view:hover { border-color:var(--accent); }
+.art {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  aspect-ratio:63/88;
+  background:#0d1421;
+  border-radius:8px;
+  overflow:hidden;
+}
+.art img { width:100%; height:100%; object-fit:contain; display:block; }
+.placeholder {
+  color:var(--muted);
+  text-align:center;
+  font-size:12px;
+  padding:10px;
+  line-height:1.7;
+  overflow-wrap:anywhere;
+}
+.card-title { margin:10px 0 7px; font-weight:bold; }
+.card-meta { font-size:12px; color:var(--muted); line-height:1.6; }
+.add-button { width:100%; margin-top:7px; padding:8px; background:#284465; font-size:13px; }
+.empty { padding:35px 15px; text-align:center; color:var(--muted); }
+.saved-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+.saved-card { padding:15px; border:1px solid var(--border); border-radius:10px; background:var(--bg); }
+.saved-card h3 { margin-bottom:8px; overflow-wrap:anywhere; }
+.saved-card .muted { font-size:13px; margin-bottom:12px; }
+.saved-actions { display:flex; gap:8px; }
+.saved-actions button { padding:8px 12px; }
+.editor-name { width:100%; margin:8px 0 14px; }
+.selected-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
+  gap:12px;
+}
+.selected-card { padding:7px; background:var(--bg); border:1px solid var(--border); border-radius:10px; }
+.thumb-button { width:100%; padding:0; border:none; background:transparent; }
+.selected-name { margin:7px 0; font-size:12px; text-align:center; }
+.quantity { display:flex; align-items:center; justify-content:center; gap:12px; }
+.quantity button { width:30px; height:30px; padding:0; font-size:18px; }
+.energy-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(90px,1fr)); gap:10px; }
+.energy-button { padding:7px; background:var(--bg); border:2px solid var(--border); }
+.energy-button.selected { border-color:var(--accent); background:#263e60; }
+.energy-art { height:95px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.energy-art img { width:100%; height:100%; object-fit:contain; }
+.energy-label { display:block; font-size:12px; margin-top:7px; }
+.validation { color:#ffce8c; margin:0; line-height:1.8; font-size:14px; }
+.validation.valid { color:#91dfac; }
+.notice { color:var(--muted); margin:12px 0 0; font-size:14px; line-height:1.7; }
+.editor-footer { margin-top:20px; }
+dialog {
+  width:min(850px,calc(100% - 24px));
+  max-height:92vh;
+  padding:0;
+  border:1px solid var(--border);
+  border-radius:16px;
+  background:var(--panel);
+  color:var(--text);
+  overflow:auto;
+}
+dialog::backdrop { background:rgba(0,0,0,.82); }
+.modal-header { padding:15px 20px; border-bottom:1px solid var(--border); }
+.modal-header h2 { margin:0; font-size:20px; }
+.modal-body { display:grid; grid-template-columns:minmax(0,1fr) 230px; gap:20px; padding:20px; }
+.large-art { min-height:260px; display:flex; align-items:center; justify-content:center; background:#0d1421; border-radius:10px; }
+.large-art img { display:block; max-width:100%; max-height:68vh; object-fit:contain; }
+dl { display:grid; grid-template-columns:70px 1fr; gap:14px 10px; margin:0; font-size:14px; }
+dt { color:var(--muted); }
+dd { margin:0; line-height:1.6; }
+@media(max-width:700px) {
+  main { padding:20px 14px; }
+  .menu-options { grid-template-columns:1fr; }
+  .menu-button { padding:28px 18px; }
+  .toolbar { grid-template-columns:1fr 1fr; }
+  .toolbar input { grid-column:1/-1; }
+  .card-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  .selected-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+  .energy-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .row { flex-wrap:wrap; }
+  .modal-body { grid-template-columns:1fr; }
+  .panel { padding:15px; }
+}
+</style>
+</head>
+<body>
+<main>
+  <!-- 主菜单 -->
+  <section id="menuPage" class="menu">
+    <div class="menu-inner">
+      <h1>洛克卡牌</h1>
+      <p class="muted">A0 · 选择你要使用的功能</p>
+      <div class="menu-options">
+        <button class="menu-button" id="openGallery">
+          <strong>卡牌图鉴</strong>
+          <span>查看全部卡牌与卡图</span>
+        </button>
+        <button class="menu-button" id="openDecks">
+          <strong>组建卡组</strong>
+          <span>选择卡牌、能量并保存卡组</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 卡牌图鉴 -->
+  <section id="galleryPage" hidden>
+    <div class="header">
+      <h1>卡牌图鉴</h1>
+      <button id="galleryBack">返回主菜单</button>
+    </div>
+    <div class="toolbar">
+      <input id="gallerySearch" type="search" placeholder="搜索卡名或编号" aria-label="搜索卡牌">
+      <select id="galleryCategory" aria-label="类别"></select>
+      <select id="galleryAttribute" aria-label="属性"></select>
+      <select id="galleryStage" aria-label="阶段"></select>
+    </div>
+    <p class="status" id="galleryStatus" role="status"></p>
+    <div class="card-grid" id="galleryGrid"></div>
+  </section>
+
+  <!-- 卡组管理与组建 -->
+  <section id="decksPage" hidden>
+    <div class="header">
+      <h1>组建卡组</h1>
+      <button id="decksBack">返回主菜单</button>
+    </div>
+
+    <section class="panel">
+      <div class="row">
+        <h2 id="savedTitle">已保存卡组</h2>
+        <button class="primary" id="newDeck">新建卡组</button>
+      </div>
+      <div class="saved-grid" id="savedGrid"></div>
+      <p class="notice" id="managerMessage" role="status"></p>
+    </section>
+
+    <section id="editor" hidden>
+      <section class="panel">
+        <div class="row">
+          <h2 id="editorTitle">新建卡组</h2>
+          <button id="clearSelection">清空已选</button>
+        </div>
+
+        <label for="deckName">卡组名称</label>
+        <input id="deckName" class="editor-name" maxlength="40" placeholder="例如：喵喵草系卡组">
+
+        <p class="status" id="selectionSummary" role="status"></p>
+        <div class="selected-grid" id="selectedGrid"></div>
+
+        <h3 style="margin-top:24px">能量类别</h3>
+        <p class="muted">选择1～3种，能量不占卡牌张数。</p>
+        <div class="energy-grid" id="energyGrid"></div>
+
+        <div class="row editor-footer">
+          <p class="validation" id="validation" role="status"></p>
+          <button class="primary" id="saveDeck">保存卡组</button>
+        </div>
+        <p class="notice" id="editorMessage" role="status"></p>
+      </section>
+
+      <section class="panel">
+        <h2>选择卡牌</h2>
+        <p class="muted">可以暂时超过20张；保存时必须恰好20张，同名卡最多2张。</p>
+        <div class="toolbar">
+          <input id="builderSearch" type="search" placeholder="搜索卡名或编号" aria-label="搜索可选卡牌">
+          <select id="builderCategory" aria-label="类别"></select>
+          <select id="builderAttribute" aria-label="属性"></select>
+          <select id="builderStage" aria-label="阶段"></select>
+        </div>
+        <p class="status" id="builderStatus" role="status"></p>
+        <div class="card-grid" id="builderGrid"></div>
+      </section>
+    </section>
+  </section>
+</main>
+
+<dialog id="viewer" aria-labelledby="viewerTitle">
+  <div class="row modal-header">
+    <h2 id="viewerTitle"></h2>
+    <div style="display:flex;gap:8px;align-items:center">
+  <button id="previousCard" aria-label="上一张卡牌">← 上一张</button>
+  <button id="nextCard" aria-label="下一张卡牌">下一张 →</button>
+  <button id="closeViewer" aria-label="关闭卡图">关闭</button>
+</div>
+  </div>
+  <div class="modal-body">
+    <div id="largeArt" class="large-art"></div>
+    <dl id="details"></dl>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+
+const IMAGE_FOLDER = "所有卡图";
+const EXTENSIONS = [
+  "png","jpg","jpeg","webp","avif","gif",
+  "PNG","JPG","JPEG","WEBP","AVIF","GIF"
+];
+const STORAGE_KEY = "rock-a0-decks-v2";
+const OLD_STORAGE_KEY = "rock-a0-deck-v1";
+const MAX_DECKS = 20;
+
+const pokemonRows = [
+  ["喵喵","草","基础","",70,"","藤绞","",1,"火"],
+  ["喵呜","草","一阶","喵喵",90,"","盛开","",2,"火"],
+  ["魔力猫","草","二阶","喵呜",160,"","光能聚集","",3,"火"],
+  ["魔力猫ex","草","二阶","喵呜",190,"氧循环","筛管奔流","",3,"火"],
+  ["伊贝儿","草","基础","",70,"","种子弹","",1,"火"],
+  ["伊贝粉粉","草","一阶","伊贝儿",120,"腐植循环","叶绿光束","",2,"火"],
+  ["火花","火","基础","",60,"","火苗","",1,"水"],
+  ["焰火","火","一阶","火花",90,"","焚毁","",1,"水"],
+  ["火神","火","二阶","焰火",150,"","火云车","",2,"水"],
+  ["火神ex","火","二阶","焰火",180,"","吹火","山火",1,"水"],
+  ["护主犬","火","基础","",60,"","闪燃","",1,"水"],
+  ["音速犬","火","一阶","护主犬",90,"","当头棒喝","流星火雨",1,"水"],
+  ["水蓝蓝","水","基础","",60,"","甩水","",1,"电"],
+  ["波波拉","水","一阶","水蓝蓝",90,"","涌泉","",1,"电"],
+  ["水灵","水","二阶","波波拉",150,"浸润","气泡","",1,"电"],
+  ["水灵ex","水","二阶","波波拉",190,"浸润","天洪","",2,"电"],
+  ["蓝蝶鲨","水","基础","",70,"","翼击","",0,"电"],
+  ["彩蝶鲨","水","一阶","蓝蝶鲨",110,"水翼推进","回旋风暴","",0,"电"],
+  ["电咩咩","电","基础","",50,"","闪击折返","",1,"斗"],
+  ["粉咩咩","电","一阶","电咩咩",80,"","球状闪电","",1,"斗"],
+  ["电球咩咩","电","二阶","粉咩咩",130,"快充","感电","",1,"斗"],
+  ["噼啪鸟ex","电","基础","",130,"","交叉闪电","落雷",1,"斗"],
+  ["双灯鱼","电","基础","",60,"","超导加速","",1,"斗"],
+  ["利灯鱼","电","一阶","双灯鱼",90,"","加大功率","落雷",1,"斗"],
+  ["阿米亚特","斗","基础","",70,"","扔泥","",1,"草"],
+  ["阿米樱","斗","一阶","阿米亚特",90,"","地刺","",3,"草"],
+  ["罗隐","斗","二阶","阿米樱",150,"","鸣沙陷阱","",3,"草"],
+  ["罗隐ex","斗","二阶","阿米樱",190,"","鸣沙陷阱","岩土暴击",4,"草"],
+  ["优优","斗","基础","",60,"","泥巴射击","",1,"草"],
+  ["绒光优优","斗","一阶","优优",90,"哨兵","泥巴射击","",0,"草"]
+];
+
+const trainerRows = [
+  ["噜噜老师","人物","从自己的卡组最上方抽2张卡。"],
+  ["恩佐","人物","选择对手1只身上有伤害的备战区精灵与对手的战斗区精灵交换。"],
+  ["路易斯","人物","将对手的战斗区精灵与1只备战区精灵交换（由对手自己选择）。"],
+  ["萌萌","人物","将自己的1只精灵恢复30点HP，并且解除它的异常状态。"],
+  ["可丽希亚","人物","将自己所有手牌放回卡组并重洗卡组，然后重新从卡组上方抽出4张卡。"],
+  ["小洛克","人物","在这个自己的回合，自己战斗区的精灵使用技能对对方战斗区的GX、EX精灵造成的伤害增加20点。"],
+  ["菲尔特","人物","在这个自己的回合，自己战斗区的精灵使用技能对对方战斗区的精灵造成的伤害增加10点。"],
+  ["易西","人物","将自己1只草属性精灵回复50HP。"],
+  ["乐乐","人物","将自己所有身上附有水能量的精灵回复40HP。"],
+  ["咕噜球","物品","从自己的卡组中选出1张基础精灵卡，在给对手看过后加入手牌，然后重洗卡组。"],
+  ["高级咕噜球","物品","投掷1次硬币，如果是正面，则从卡组中选出1只精灵，展示后加入手牌，然后重洗卡组。"],
+  ["伤药","物品","将自己的1只精灵恢复20点HP。"],
+  ["星星魔法","物品","将对手所有手牌放回卡组并重洗，然后重新抽出与我方剩余魔力值数量相同的手牌。"],
+  ["风场魔法","物品","在这个自己回合，自己的战斗区精灵撤退所需能量减少1个。"],
+  ["火焰补丁","物品","从自己弃牌区选择1个火能量附在自己的战斗区精灵身上。"],
+ ["电气连接","物品","投掷1次硬币,如果是正面,则从能量区抽出1个电能量以任意方式附在自己的精灵身上。"],
+  ["斗气能量","物品","在这个自己的回合，自己战斗区的斗属性精灵使用技能对对方战斗区的精灵造成的伤害增加10点。"]
+];
+
+const ENERGY_TYPES = [
+  "无属性能量","草属性能量","火属性能量","水属性能量",
+  "电属性能量","斗属性能量","幻属性能量","恶属性能量",
+  "光属性能量","钢属性能量","龙属性能量"
+];
+
+function makeId(n) {
+  return "A0-" + String(n).padStart(3,"0");
+}
+
+const cards = [
+  ...pokemonRows.map((r,i) => ({
+    id:makeId(i+1), name:r[0], category:"精灵",
+    attribute:r[1], stage:r[2], evolvesFrom:r[3],
+    hp:r[4], ability:r[5], skills:[r[6],r[7]].filter(Boolean),
+    retreat:r[8], weakness:r[9]
+  })),
+  ...trainerRows.map((r,i) => ({
+    id:makeId(i+31), name:r[0], category:r[1], effect:r[2]
+  }))
+];
+
+const cardById = new Map(cards.map(c => [c.id,c]));
+const imageCache = new Map();
+const $ = id => document.getElementById(id);
+
+let savedDecks = [];
+let editingId = null;
+let counts = new Map();
+let energies = new Set();
+let dirty = false;
+let galleryBuilt = false;
+let builderBuilt = false;
+
+// 图片读取
+function loadImage(name,host) {
+  const cached = imageCache.get(name);
+  const candidates = EXTENSIONS.map(ext =>
+    "./" + encodeURIComponent(IMAGE_FOLDER) + "/" +
+    encodeURIComponent(name + "." + ext)
+  );
+  const paths = cached
+    ? [cached,...candidates.filter(p => p !== cached)]
+    : candidates;
+
+  const placeholder = document.createElement("div");
+  placeholder.className = "placeholder";
+  placeholder.textContent = "读取中…";
+  host.replaceChildren(placeholder);
+
+  const img = new Image();
+  img.alt = name;
+  img.decoding = "async";
+  let index = 0;
+
+  img.onload = () => {
+    imageCache.set(name,paths[index]);
+    host.replaceChildren(img);
+  };
+  img.onerror = () => {
+    index++;
+    if(index < paths.length) {
+      img.src = paths[index];
+    } else {
+      placeholder.textContent = "未找到卡图：" + name;
+      host.replaceChildren(placeholder);
+    }
+  };
+  img.src = paths[index];
+}
+
+function button(text,action,className="") {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = text;
+  b.className = className;
+  b.addEventListener("click",action);
+  return b;
+}
+
+function showPage(page) {
+  $("menuPage").hidden = page !== "menu";
+  $("galleryPage").hidden = page !== "gallery";
+  $("decksPage").hidden = page !== "decks";
+
+  if(page === "gallery" && !galleryBuilt) {
+    renderCatalog("gallery",false);
+    galleryBuilt = true;
+  }
+  if(page === "decks") renderSavedDecks();
+  window.scrollTo(0,0);
+}
+
+// 筛选
+function fillSelect(id,items) {
+  const select = $(id);
+  for(const [value,label] of items) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    select.append(option);
+  }
+}
+
+for(const prefix of ["gallery","builder"]) {
+  fillSelect(prefix+"Category",[
+    ["","全部类别"],["精灵","精灵"],["人物","人物"],["物品","物品"]
+  ]);
+  fillSelect(prefix+"Attribute",[
+    ["","全部属性"],["草","草"],["火","火"],["水","水"],["电","电"],["斗","斗"]
+  ]);
+  fillSelect(prefix+"Stage",[
+    ["","全部阶段"],["基础","基础"],["一阶","一阶"],["二阶","二阶"]
+  ]);
+
+  $(prefix+"Search").addEventListener("input",() =>
+    renderCatalog(prefix,prefix==="builder")
+  );
+  for(const suffix of ["Category","Attribute","Stage"]) {
+    $(prefix+suffix).addEventListener("change",() =>
+      renderCatalog(prefix,prefix==="builder")
+    );
+  }
+}
+
+function renderCatalog(prefix,allowAdd) {
+  const keyword = $(prefix+"Search").value.trim().toLowerCase();
+  const category = $(prefix+"Category").value;
+  const attribute = $(prefix+"Attribute").value;
+  const stage = $(prefix+"Stage").value;
+
+  const filtered = cards.filter(c =>
+    (c.name.toLowerCase().includes(keyword) ||
+      c.id.toLowerCase().includes(keyword)) &&
+    (!category || c.category===category) &&
+    (!attribute || c.attribute===attribute) &&
+    (!stage || c.stage===stage)
+  );
+
+  const grid = $(prefix+"Grid");
+  grid.replaceChildren();
+  $(prefix+"Status").textContent =
+    "显示 " + filtered.length + " / " + cards.length + " 张";
+
+  if(!filtered.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "没有符合条件的卡牌。";
+    grid.append(empty);
+    return;
+  }
+
+  for(const card of filtered) {
+    const tile = document.createElement("div");
+    tile.className = "card-tile";
+
+    const view = button("",() => openCard(card),"card-view");
+    view.setAttribute("aria-label","查看"+card.name);
+
+    const art = document.createElement("div");
+    art.className = "art";
+    const title = document.createElement("div");
+    title.className = "card-title";
+    title.textContent = card.name;
+    const meta = document.createElement("div");
+    meta.className = "card-meta";
+    meta.textContent = card.id + " · " +
+      (card.category==="精灵"
+        ? card.attribute+" · "+card.stage
+        : card.category);
+
+    view.append(art,title,meta);
+    tile.append(view);
+
+    if(allowAdd) {
+      const add = button("",() => addCard(card.id),"add-button");
+      add.dataset.cardId = card.id;
+      tile.append(add);
+    }
+
+    grid.append(tile);
+    loadImage(card.name,art);
+  }
+  if(allowAdd) updateAddButtons();
+}
+// 当前查看的卡牌编号。
+let viewedCardId = null;
+
+// 图鉴按当前搜索筛选结果翻动；
+// 组卡页面按当前可选卡牌的搜索筛选结果翻动。
+function getViewerCards() {
+  const prefix = !$("galleryPage").hidden
+    ? "gallery"
+    : "builder";
+
+  const keyword = $(prefix+"Search").value.trim().toLowerCase();
+  const category = $(prefix+"Category").value;
+  const attribute = $(prefix+"Attribute").value;
+  const stage = $(prefix+"Stage").value;
+
+  return cards.filter(c =>
+    (c.name.toLowerCase().includes(keyword) ||
+      c.id.toLowerCase().includes(keyword)) &&
+    (!category || c.category===category) &&
+    (!attribute || c.attribute===attribute) &&
+    (!stage || c.stage===stage)
+  );
+}
+
+function updateViewerNavigation() {
+  const list = getViewerCards();
+  const index = list.findIndex(c => c.id===viewedCardId);
+
+  $("previousCard").disabled = index<=0;
+  $("nextCard").disabled =
+    index<0 || index>=list.length-1;
+}
+
+function turnCard(direction) {
+  const list = getViewerCards();
+  const index = list.findIndex(c => c.id===viewedCardId);
+
+  if(index<0) return;
+
+  const nextIndex = index+direction;
+  if(nextIndex<0 || nextIndex>=list.length) return;
+
+  openCard(list[nextIndex]);
+}
+
+$("previousCard").addEventListener("click",() => turnCard(-1));
+$("nextCard").addEventListener("click",() => turnCard(1));
+
+// 打开放大卡图后，也可以用键盘左右方向键翻动。
+document.addEventListener("keydown",event => {
+  if(!$("viewer").open) return;
+
+  if(event.key==="ArrowLeft") {
+    event.preventDefault();
+    turnCard(-1);
+  } else if(event.key==="ArrowRight") {
+    event.preventDefault();
+    turnCard(1);
+  }
+});
+// 放大卡图
+function openCard(card) {
+  viewedCardId = card.id;
+  updateViewerNavigation();
+  $("viewerTitle").textContent = card.name;
+  const details = $("details");
+  details.replaceChildren();
+
+  function field(label,value) {
+    const dt = document.createElement("dt");
+    const dd = document.createElement("dd");
+    dt.textContent = label;
+    dd.textContent = String(value);
+    details.append(dt,dd);
+  }
+
+  field("编号",card.id);
+  field("类别",card.category);
+  if(card.category==="精灵") {
+    field("属性",card.attribute);
+    field("阶段",card.stage);
+    if(card.evolvesFrom) field("进化自",card.evolvesFrom);
+    field("HP",card.hp);
+    field("特性",card.ability || "无");
+    field("技能",card.skills.join(" / "));
+    field("撤退",card.retreat);
+    field("弱点",card.weakness+" +20");
+  } else {
+    field("效果",card.effect);
+  }
+
+  loadImage(card.name,$("largeArt"));
+  if(!$("viewer").open) $("viewer").showModal();
+}
+
+$("closeViewer").addEventListener("click",() => $("viewer").close());
+$("viewer").addEventListener("click",event => {
+  if(event.target!==$("viewer")) return;
+  const r = $("viewer").getBoundingClientRect();
+  if(event.clientX<r.left || event.clientX>r.right ||
+     event.clientY<r.top || event.clientY>r.bottom) {
+    $("viewer").close();
+  }
+});
+
+// 卡组规则
+function totalCards(map=counts) {
+  return [...map.values()].reduce((sum,n) => sum+n,0);
+}
+
+function nameCount(name,map=counts) {
+  let n = 0;
+  for(const [id,count] of map) {
+    if(cardById.get(id)?.name===name) n += count;
+  }
+  return n;
+}
+
+function basicCount(map=counts) {
+  let n = 0;
+  for(const [id,count] of map) {
+    const card = cardById.get(id);
+    if(card?.category==="精灵" && card.stage==="基础") n += count;
+  }
+  return n;
+}
+
+function ruleErrors(map=counts,energySet=energies) {
+  const errors = [];
+  const total = totalCards(map);
+  if(total!==20) errors.push("需要恰好20张卡（当前"+total+"张）");
+  if(basicCount(map)<1) errors.push("至少需要1张基础精灵");
+
+  const checked = new Set();
+  for(const [id,count] of map) {
+    const card = cardById.get(id);
+    if(!card || !Number.isInteger(count) || count<1) {
+      errors.push("卡牌数据无效");
+      continue;
+    }
+    if(!checked.has(card.name)) {
+      checked.add(card.name);
+      if(nameCount(card.name,map)>2) {
+        errors.push(card.name+"超过2张");
+      }
+    }
+  }
+  if(energySet.size<1 || energySet.size>3) {
+    errors.push("请选择1～3种能量");
+  }
+  if([...energySet].some(e => !ENERGY_TYPES.includes(e))) {
+    errors.push("能量类别无效");
+  }
+  return errors;
+}
+
+function markDirty() {
+  dirty = true;
+  $("editorMessage").textContent = "有未保存的修改。";
+}
+
+function addCard(id) {
+  const card = cardById.get(id);
+  if(!card || nameCount(card.name)>=2) return;
+
+  // 不限制选卡总张数；保存时才检查20张。
+  counts.set(id,(counts.get(id)||0)+1);
+  markDirty();
+  renderEditor();
+}
+
+function removeCard(id) {
+  const n = counts.get(id)||0;
+  if(n<=1) counts.delete(id);
+  else counts.set(id,n-1);
+  markDirty();
+  renderEditor();
+}
+
+function updateAddButtons() {
+  $("builderGrid").querySelectorAll(".add-button").forEach(b => {
+    const card = cardById.get(b.dataset.cardId);
+    const n = nameCount(card.name);
+    b.disabled = n>=2;
+    b.textContent = n>=2 ? "已加入2张" : "加入卡组 · "+n+"/2";
+  });
+}
+
+function renderEditor() {
+  const total = totalCards();
+  $("selectionSummary").textContent =
+    "已选 "+total+" / 20 张 · 基础精灵 "+
+    basicCount()+" 张 · 能量 "+energies.size+" / 3 种";
+
+  const grid = $("selectedGrid");
+  grid.replaceChildren();
+
+  if(total===0) {
+    const hint = document.createElement("p");
+    hint.className = "muted";
+    hint.textContent = "从下方卡牌列表中选择卡牌。";
+    grid.append(hint);
+  }
+
+  for(const [id,n] of [...counts].sort((a,b)=>a[0].localeCompare(b[0]))) {
+    const card = cardById.get(id);
+    const tile = document.createElement("div");
+    tile.className = "selected-card";
+
+    const thumb = button("",() => openCard(card),"thumb-button");
+    thumb.setAttribute("aria-label","查看"+card.name);
+    const art = document.createElement("div");
+    art.className = "art";
+    thumb.append(art);
+
+    const name = document.createElement("div");
+    name.className = "selected-name";
+    name.textContent = card.name;
+
+    const controls = document.createElement("div");
+    controls.className = "quantity";
+    const minus = button("−",() => removeCard(id));
+    minus.setAttribute("aria-label","减少一张"+card.name);
+    const number = document.createElement("span");
+    number.textContent = "×"+n;
+    const plus = button("+",() => addCard(id));
+    plus.setAttribute("aria-label","增加一张"+card.name);
+    plus.disabled = nameCount(card.name)>=2;
+
+    controls.append(minus,number,plus);
+    tile.append(thumb,name,controls);
+    grid.append(tile);
+    loadImage(card.name,art);
+  }
+
+  $("energyGrid").querySelectorAll(".energy-button").forEach(b => {
+    const selected = energies.has(b.dataset.energy);
+    b.classList.toggle("selected",selected);
+    b.setAttribute("aria-pressed",String(selected));
+    b.disabled = !selected && energies.size>=3;
+  });
+
+  const errors = ruleErrors();
+  if(editingId===null && savedDecks.length>=MAX_DECKS) {
+    errors.push("已保存20套卡组，请先删除一套");
+  }
+
+  $("validation").textContent = errors.length
+    ? errors.join("；")
+    : "符合规则，可以保存。";
+  $("validation").classList.toggle("valid",errors.length===0);
+  $("saveDeck").disabled = errors.length>0;
+  updateAddButtons();
+}
+
+function buildEnergies() {
+  for(const name of ENERGY_TYPES) {
+    const b = button("",() => {
+      if(energies.has(name)) energies.delete(name);
+      else if(energies.size<3) energies.add(name);
+      markDirty();
+      renderEditor();
+    },"energy-button");
+
+    b.dataset.energy = name;
+    b.setAttribute("aria-pressed","false");
+    b.setAttribute("aria-label",name);
+    const art = document.createElement("div");
+    art.className = "energy-art";
+    const label = document.createElement("span");
+    label.className = "energy-label";
+    label.textContent = name;
+    b.append(art,label);
+    $("energyGrid").append(b);
+    loadImage(name,art);
+  }
+}
+
+let energyBuilt = false;
+
+function canReplaceDraft() {
+  return !dirty || window.confirm("当前修改尚未保存，是否放弃这些修改？");
+}
+
+function startEditor(deck=null) {
+  if(!canReplaceDraft()) return;
+  if(!deck && savedDecks.length>=MAX_DECKS) {
+    $("managerMessage").textContent = "最多保存20套卡组，请先删除一套。";
+    return;
+  }
+
+  editingId = deck ? deck.id : null;
+  counts = new Map(deck ? deck.cards.map(c=>[c.id,c.count]) : []);
+  energies = new Set(deck ? deck.energies : []);
+  $("deckName").value = deck ? deck.name : "";
+  $("editorTitle").textContent = deck ? "编辑卡组" : "新建卡组";
+  $("editorMessage").textContent = "";
+  dirty = false;
+  $("editor").hidden = false;
+
+  if(!energyBuilt) {
+    buildEnergies();
+    energyBuilt = true;
+  }
+  if(!builderBuilt) {
+    renderCatalog("builder",true);
+    builderBuilt = true;
+  }
+
+  renderEditor();
+  $("editor").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+function createDeckId() {
+  return "deck-"+Date.now()+"-"+Math.random().toString(36).slice(2,10);
+}
+
+// 写入成功后才更新内存中的已保存列表。
+function persistDecks(nextDecks) {
+  try {
+    localStorage.setItem(STORAGE_KEY,JSON.stringify({
+      version:2,
+      decks:nextDecks
+    }));
+    savedDecks = nextDecks;
+    return true;
+  } catch(error) {
+    return false;
+  }
+}
+
+function saveDeck() {
+  const errors = ruleErrors();
+  if(editingId===null && savedDecks.length>=MAX_DECKS) {
+    errors.push("最多保存20套卡组");
+  }
+  if(errors.length) {
+    $("editorMessage").textContent = errors.join("；");
+    return;
+  }
+
+  const name = $("deckName").value.trim() || "我的卡组";
+  const deck = {
+    id:editingId || createDeckId(),
+    name,
+    cards:[...counts].map(([id,count])=>({id,count})),
+    energies:[...energies]
+  };
+
+  const next = editingId
+    ? savedDecks.map(d=>d.id===editingId ? deck : d)
+    : [...savedDecks,deck];
+
+  if(!persistDecks(next)) {
+    $("editorMessage").textContent = "保存失败，浏览器无法写入本地存储。";
+    return;
+  }
+
+  editingId = deck.id;
+  dirty = false;
+  $("deckName").value = name;
+  $("editorTitle").textContent = "编辑卡组";
+  $("editorMessage").textContent = "已保存“"+name+"”。";
+  renderSavedDecks();
+  renderEditor();
+}
+
+function deleteDeck(id) {
+  const deck = savedDecks.find(d=>d.id===id);
+  if(!deck) return;
+  if(!window.confirm("确定删除卡组“"+deck.name+"”吗？")) return;
+
+  if(!persistDecks(savedDecks.filter(d=>d.id!==id))) {
+    $("managerMessage").textContent = "删除失败，浏览器无法写入本地存储。";
+    return;
+  }
+
+  if(editingId===id) {
+    editingId = null;
+    counts = new Map();
+    energies = new Set();
+    dirty = false;
+    $("editor").hidden = true;
+  }
+
+  $("managerMessage").textContent = "已删除“"+deck.name+"”。";
+  renderSavedDecks();
+  if(!$("editor").hidden) renderEditor();
+}
+
+function renderSavedDecks() {
+  $("savedTitle").textContent =
+    "已保存卡组 · "+savedDecks.length+" / "+MAX_DECKS;
+  $("newDeck").disabled = savedDecks.length>=MAX_DECKS;
+  const grid = $("savedGrid");
+  grid.replaceChildren();
+
+  if(!savedDecks.length) {
+    const hint = document.createElement("p");
+    hint.className = "muted";
+    hint.textContent = "还没有保存的卡组，点击“新建卡组”开始。";
+    grid.append(hint);
+  }
+
+  for(const deck of savedDecks) {
+    const tile = document.createElement("div");
+    tile.className = "saved-card";
+    const title = document.createElement("h3");
+    title.textContent = deck.name;
+    const description = document.createElement("p");
+    description.className = "muted";
+    description.textContent =
+      deck.cards.reduce((sum,c)=>sum+c.count,0)+"张 · "+
+      deck.energies.map(e=>e.replace("属性能量","")).join(" / ");
+
+    const actions = document.createElement("div");
+    actions.className = "saved-actions";
+    actions.append(
+      button("打开 / 编辑",()=>startEditor(deck)),
+      button("删除",()=>deleteDeck(deck.id),"danger")
+    );
+    tile.append(title,description,actions);
+    grid.append(tile);
+  }
+}
+
+// 校验读取的数据，防止无效记录进入卡组列表。
+function normalizeDeck(raw,fallbackId) {
+  if(!raw || !Array.isArray(raw.cards) || !Array.isArray(raw.energies)) {
+    return null;
+  }
+
+  const map = new Map();
+  for(const entry of raw.cards) {
+    if(!entry || !cardById.has(entry.id) ||
+       !Number.isInteger(entry.count) || entry.count<1 ||
+       map.has(entry.id)) return null;
+    map.set(entry.id,entry.count);
+  }
+
+  const set = new Set(raw.energies);
+  if(set.size!==raw.energies.length || ruleErrors(map,set).length) return null;
+
+  return {
+    id:typeof raw.id==="string" && raw.id ? raw.id : fallbackId,
+    name:typeof raw.name==="string" ? raw.name.slice(0,40) : "我的卡组",
+    cards:[...map].map(([id,count])=>({id,count})),
+    energies:[...set]
+  };
+}
+
+function restoreDecks() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) {
+      const data = JSON.parse(raw);
+      if(data.version!==2 || !Array.isArray(data.decks)) {
+        throw new Error("格式无效");
+      }
+
+      const ids = new Set();
+      let skipped = 0;
+      for(const item of data.decks) {
+        const deck = normalizeDeck(item,createDeckId());
+        if(!deck || ids.has(deck.id) || savedDecks.length>=MAX_DECKS) {
+          skipped++;
+          continue;
+        }
+        ids.add(deck.id);
+        savedDecks.push(deck);
+      }
+
+      if(skipped) {
+        $("managerMessage").textContent = "部分无效卡组记录未载入。";
+      }
+      return;
+    }
+
+    // 尝试继承上一版保存的单套卡组。
+    const oldRaw = localStorage.getItem(OLD_STORAGE_KEY);
+    if(oldRaw) {
+      const old = JSON.parse(oldRaw);
+      if(old.version===1) {
+        const deck = normalizeDeck(old,createDeckId());
+        if(deck) {
+          savedDecks = [deck];
+          $("managerMessage").textContent =
+            "已载入上一版卡组，打开后点击保存即可更新。";
+        }
+      }
+    }
+  } catch(error) {
+    $("managerMessage").textContent =
+      "未能读取本地卡组。原存储未被覆盖，可以新建卡组。";
+  }
+}
+
+$("openGallery").addEventListener("click",()=>showPage("gallery"));
+$("openDecks").addEventListener("click",()=>showPage("decks"));
+$("galleryBack").addEventListener("click",()=>showPage("menu"));
+$("decksBack").addEventListener("click",()=>showPage("menu"));
+$("newDeck").addEventListener("click",()=>startEditor());
+
+$("deckName").addEventListener("input",markDirty);
+$("saveDeck").addEventListener("click",saveDeck);
+
+$("clearSelection").addEventListener("click",()=>{
+  counts.clear();
+  markDirty();
+  renderEditor();
+});
+
+// 返回主菜单不会丢失草稿；关闭或刷新页面前提醒。
+window.addEventListener("beforeunload",event=>{
+  if(!dirty) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
+
+restoreDecks();
+showPage("menu");
+</script>
+</body>
+</html>
