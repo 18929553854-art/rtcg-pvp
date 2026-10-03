@@ -938,7 +938,7 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     const hp=el('div',String(Math.max(0,c.hp-m.damage)),'hp-badge'),bar=el('div',undefined,'hp-bar'),fill=el('span');
     if((c.hp-m.damage)/c.hp<.3)hp.classList.add('critical');else if((c.hp-m.damage)/c.hp<.6)hp.classList.add('low');fill.style.width=Math.max(0,(c.hp-m.damage)/c.hp*100)+'%';if((c.hp-m.damage)/c.hp<.3)fill.style.background='#e79a82';bar.append(fill);hp.append(bar);box.append(hp);
     const energy=el('div',undefined,'energy-chips');m.energy.forEach((t,index)=>{if(scene?.type==='attachFlight'&&scene.target===m.uid&&index>=m.energy.length-scene.added)return;if(owner===0&&targetChoice?.movement&&targetChoice.items.some((item,i)=>item.source===m.uid&&item.index===index&&targetChoice.tokens[i]!==null))return;energy.append(energyChip(t));});if(m.energy.length>4){energy.classList.add('energy-stack');energy.style.setProperty('--energy-overlap',Math.min(16,7+(m.energy.length-5)*1.5)+'px');}if(owner===0&&targetChoice?.allocation)targetChoice.tokens.forEach((uid,i)=>{if(uid!==m.uid)return;const chip=energyChip(targetChoice.items?.[i].type||targetChoice.type);chip.classList.add('pending-energy');energy.append(chip);});box.append(energy);box.title=energySummary(p,m);box.append(el('span','能量 '+m.energy.length,'energy-count'));
-    if(owner===0&&active)box.classList.add('attack-ready');
+    if(owner===0&&active&&game.current===0&&game.phase==='play'&&!game.winner&&!busy&&!scene&&!targetChoice)box.classList.add('attack-ready');
     if(c.ability)box.append(el('span',c.ability,'ability-tag'));
     if(owner===0&&targetChoice?.movement&&targetChoice.items.some(item=>item.source===m.uid)){box.append(el('span',energySourceLabel(m),'energy-donor-badge'));if(targetChoice.items[targetChoice.picked]?.source===m.uid)box.classList.add('energy-source-selected');}
     const conditions=el('div',undefined,'special-status-icons');for(const type of m.status){const spec=SPECIAL_STATUS[type];if(!spec)continue;const badge=el('span',spec.icon,'special-status-icon');badge.title=type;badge.setAttribute('aria-label',type);badge.style.setProperty('--status-color',spec.color);conditions.append(badge);}box.append(conditions);box.onclick=()=>inspectCard(c,owner,m);
@@ -960,7 +960,8 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
   function inspectCard(c,owner=0,m=null,handIndex=null,viewOnly=false){if(!game)return;
     const p=game.players[owner],q=game.players[1-owner],actions=legalActions(0),enabled=!busy&&!scene&&!targetChoice&&game.current===0&&game.phase==='play'&&!game.winner;
     const attacking=!viewOnly&&m&&owner===0&&p.active===m&&enabled;
-    inspector.className=attacking?'card-zoom-dialog attack-dialog':'card-zoom-dialog';
+    const benchAbility=!viewOnly&&m&&owner===0&&p.active!==m&&enabled&&c.ability==='氧循环';
+    inspector.className=(attacking||benchAbility)?'card-zoom-dialog attack-dialog':'card-zoom-dialog';
     const palette={'光':['#efcb5b','#b6952b'],'草':['#79ba4b','#428630'],'火':['#ffad3d','#ec8824'],'水':['#56b7e3','#287fac'],'斗':['#d88c60','#ad613a'],'机械':['#9dacba','#637b8f'],'超':['#c482d8','#9255ae'],'恶':['#8c7997','#594965'],'龙':['#737cca','#47569d'],'普':['#baa68d','#887761'],'电':['#f2d55a','#c3a324']};const colors=palette[c.attribute]||palette['普'];inspector.style.setProperty('--skill-top',colors[0]);inspector.style.setProperty('--skill-bottom',colors[1]);
     inspector.replaceChildren();const top=el('div',undefined,'inspect-close');top.append(el('h2',c.name),actionButton('返回桌面',()=>inspector.close()));
     const frame=el('div',undefined,'zoom-frame'),art=el('div',undefined,'zoom-card');art.append(artwork(c,'inspect'));frame.append(art);
@@ -968,16 +969,16 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     const run=fn=>()=>{inspector.close();fn();};
     const zoom=()=>{frame.classList.toggle('zoomed');};
     inspector.onclick=e=>{if(inspector.classList.contains('card-zoom-dialog')&&!e.target.closest('button')&&!e.target.closest('.on-card-skill'))inspector.close();};
-    if(attacking){const overlay=el('div',undefined,'card-skill-overlay');overlay.style.top=(c.skills.length===1?'57%':'53%');
-      for(const name of c.skills){const definition=SKILLS[name],a=actions.find(x=>x.type==='attack'&&x.name===name),n=q.active?damageFor(p,q,m,name):definition[1];
+    if(attacking||benchAbility){const overlay=el('div',undefined,'card-skill-overlay');overlay.style.top=(c.skills.length===1?'57%':'53%');
+      if(attacking)for(const name of c.skills){const definition=SKILLS[name],a=actions.find(x=>x.type==='attack'&&x.name===name),n=q.active?damageFor(p,q,m,name):definition[1];
         const skill=actionButton('',run(()=>humanAction(a)),!a);skill.className='on-card-skill';skill.dataset.skill=name;
         const cost=el('span',undefined,'skill-cost');costFor(p,m,name).forEach(t=>cost.append(energyChip(t)));
         const damage=el('strong',String(n),'skill-damage'+(n>definition[1]?' increased':n<definition[1]?' decreased':''));
         skill.append(cost,el('strong',name,'on-card-name'),damage);skill.title=a?'使用'+name:'能量不足';
         skill.setAttribute('aria-label',name+'，'+n+'伤害'+(!a?'，能量不足':''));overlay.append(skill);}
       if(c.ability){const ability=actions.find(a=>a.type==='ability'&&a.uid===m.uid),entry=actionButton('',ability?run(()=>humanAction(ability)):()=>{},!ability);entry.className='on-card-skill on-card-ability';const cost=el('span',undefined,'skill-cost');cost.append(el('span','特性','ability-marker'));entry.append(cost,el('strong',c.ability,'on-card-name'),el('span',c.ability==='氧循环'?'每回合一次':'自动生效','ability-mode'));entry.setAttribute('aria-label','特性 '+c.ability+(ability?'，可发动':'，'+(c.ability==='氧循环'?'当前不可发动':'自动生效')));overlay.prepend(entry);}
-      const retreats=actions.filter(a=>a.type==='retreat'),retreat=actionButton('',run(()=>requestTargets('选择撤退后出战的精灵',retreats)),!retreats.length);retreat.className='on-card-retreat';
-      const retreatCost=el('span',undefined,'skill-cost');for(let i=0;i<Math.max(0,c.retreat-(p.wind||0));i++)retreatCost.append(energyChip('无'));retreat.append(retreatCost,el('strong','撤退'));overlay.append(retreat);art.append(overlay);
+      if(attacking){const retreats=actions.filter(a=>a.type==='retreat'),retreat=actionButton('',run(()=>requestTargets('选择撤退后出战的精灵',retreats)),!retreats.length);retreat.className='on-card-retreat';
+      const retreatCost=el('span',undefined,'skill-cost');for(let i=0;i<Math.max(0,c.retreat-(p.wind||0));i++)retreatCost.append(energyChip('无'));retreat.append(retreatCost,el('strong','撤退'));overlay.append(retreat);}art.append(overlay);
       buttons.append(actionButton('查看原卡图',run(()=>inspectCard(c,owner,m,handIndex,true))));
     }else {art.tabIndex=0;art.setAttribute('role','button');art.setAttribute('aria-label','点击关闭'+c.name+'卡图');art.onclick=()=>inspector.close();
       art.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();zoom();}};
@@ -988,7 +989,7 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     if(!viewOnly&&owner===0&&enabled){
       if(m){const attach=actions.find(a=>a.type==='attach'&&a.uid===m.uid);
         if(attach)buttons.append(actionButton('附能',run(()=>humanAction(attach))));
-        if(c.ability==='氧循环'&&!attacking){const ability=actions.find(a=>a.type==='ability'&&a.uid===m.uid);buttons.append(actionButton('使用氧循环',run(()=>humanAction(ability)),!ability));}
+        if(c.ability==='氧循环'&&!attacking&&!benchAbility){const ability=actions.find(a=>a.type==='ability'&&a.uid===m.uid);buttons.append(actionButton('使用氧循环',run(()=>humanAction(ability)),!ability));}
         if(p.active===m&&!attacking){const retreats=actions.filter(a=>a.type==='retreat');buttons.append(actionButton('撤退',run(()=>requestTargets('选择撤退后出战的精灵',retreats)),!retreats.length));}
       }
       if(handIndex!==null){const basic=actions.find(a=>a.type==='basic'&&a.i===handIndex),evos=actions.filter(a=>a.type==='evolve'&&a.i===handIndex),trainer=actions.find(a=>a.type==='trainer'&&a.i===handIndex);
