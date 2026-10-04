@@ -67,7 +67,7 @@
   };
   const ABILITY_TEXT={氧循环:'每回合一次，选择1只己方草精灵回复30HP。',
     腐植循环:'从能量区附能后，自身回复20HP。',浸润:'己方水精灵的每个水能量视为2个；不会叠加。',
-    水翼推进:'技能的无属性需求减少弃牌区水能量的数量。',快充:'从备战区进入战斗区时，可将己方场上的能量移动到自身。',
+    水翼推进:'技能的无属性需求减少弃牌区水能量的数量。',快充:'在自己的回合，从备战区进入战斗区时，可将己方场上任意数量的能量移动到自身。',
     哨兵:'每次从备战区进入战斗区时，对任意1只对方精灵造成20伤害。'};
   const el = (tag,text,cls) => {const x=document.createElement(tag);
     if(text!==undefined)x.textContent=text;if(cls)x.className=cls;return x;};
@@ -497,7 +497,7 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     const old=p.active;clearStatus(old);clearStatus(m);old.slot=m.slot;p.active=m;p.bench[i]=old;m.entered=p.turns;}
   async function onEnter(owner){const p=game.players[owner],q=game.players[1-owner],m=p.active;
     await beat('switch',p.label+'换上'+info(m).name,{target:m.uid},450);
-    if(info(m).ability==='快充'){
+    if(info(m).ability==='快充'&&game.current===owner){
       if(networkHooks?.role==='server')await networkMovement(owner,'快充',p.bench.filter(x=>x.energy.length),[m]);else if(owner===0&&window.requestAnimationFrame)await moveEnergyUI('快充',p.bench.filter(x=>x.energy.length),[m]);else {let again=true;while(again){const donors=p.bench.filter(x=>x.energy.length);
         const donor=await chooseMon(owner,'快充：选择转移能量的精灵（可跳过）',donors,true);
         if(!donor)break;const t=await choose(owner,'选择移动的能量',donor.energy.map((t,i)=>({value:i,label:t+'能量',score:1})),true);
@@ -554,8 +554,8 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     if(n===32)return q.bench.some(m=>m.damage>0);
     if(n===33)return !!q.bench.length;
     if(n===40||n===41)return true;
-    if(n===45)return p.discardEnergy.includes('火');
-    if(n===46)return p.types.includes('电');
+    if(n===45)return p.discardEnergy.includes('火')&&info(p.active).attribute==='火';
+    if(n===46)return p.types.includes('电')&&mons(p).some(m=>info(m).attribute==='电');
     if(n===47)return info(p.active).attribute==='斗';
     return true;
   }
@@ -598,11 +598,11 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
       case 43:q.deck.push(...q.hand);q.hand=[];shuffle(q.deck);
         await beat('shuffle',q.label+'将手牌放回卡组',{owner:1-owner},450);await animatedDraw(1-owner,p.magic);break;
       case 44:p.wind=(p.wind||0)+1;break;
-      case 45:await extraAttach(owner,'火焰补丁：回收火能量','火',1,[p.active],false);p.discardEnergy.splice(p.discardEnergy.indexOf('火'),1);break;
+      case 45:await extraAttach(owner,'火焰补丁：回收火能量','火',1,[p.active].filter(m=>info(m).attribute==='火'),false);p.discardEnergy.splice(p.discardEnergy.indexOf('火'),1);break;
       case 46:if(await tossCoin('电气连接 · 投掷硬币')){
         log('电气连接：正面。');
-        await beat('coin','正面',{coin:'正',subtitle:'选择1只己方精灵附加电能量'},800);
-        await extraAttach(owner,'电气连接','电',1);}
+        await beat('coin','正面',{coin:'正',subtitle:'选择1只己方电系精灵附加电能量'},800);
+        await extraAttach(owner,'电气连接','电',1,mons(p).filter(m=>info(m).attribute==='电'));}
         else {log('电气连接：反面。');await beat('coin','反面',{coin:'反',subtitle:'本次没有附加能量'},800);}break;
       case 47:p.fightBuff=(p.fightBuff||0)+10;break;
       default:throw new Error('未实现的卡牌：'+c.name);
