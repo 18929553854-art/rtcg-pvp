@@ -790,7 +790,7 @@ function renderEditor() {
 }
 
 function buildEnergies() {
-  for(const name of ENERGY_TYPES) {
+  for(const name of ENERGY_TYPES.filter(name=>name!=="无属性能量")) {
     const b = button("",() => {
       if(energies.has(name)) energies.delete(name);
       else if(energies.size<3) energies.add(name);
@@ -827,7 +827,7 @@ function startEditor(deck=null) {
 
   editingId = deck ? deck.id : null;
   counts = new Map(deck ? deck.cards.map(c=>[c.id,c.count]) : []);
-  energies = new Set(deck ? deck.energies : []);
+  energies = new Set(deck ? deck.energies.filter(name=>name!=="无属性能量") : []);
   $("deckName").value = deck ? deck.name : "";
   $("editorTitle").textContent = deck ? "编辑卡组" : "新建卡组";
   $("editorMessage").textContent = "";
@@ -1239,7 +1239,7 @@ showPage("menu");
   function recordContribution(owner,m,amount,victim){const stats=game.contributions||(game.contributions=[{},{}]),entry=stats[owner][m.uid]||(stats[owner][m.uid]={uid:m.uid,id:m.id,damage:0,kos:0,uses:0});entry.id=m.id;entry.damage+=Math.max(0,amount);entry.uses++;if(amount>0&&amount>=info(victim).hp-victim.damage)entry.kos++;}
   function standoutCard(owner=0){const entries=Object.values(game.contributions?.[owner]||{}).sort((a,b)=>b.damage-a.damage||b.kos-a.kos||b.uses-a.uses||a.uid-b.uid);if(entries.length)return card(entries[0].id);
     const p=game.players[owner];return p.active?info(p.active):p.bench.length?info(p.bench[0]):[...p.discard,...p.hand,...p.deck].map(card).find(c=>c?.category==='精灵');}
-  function renderBattleResult(){if(!game?.winner){arena.inert=false;resultOverlay.hidden=true;resultSignature='';return;}const outcome=game.winner===game.players[0].label+'获胜'?'victory':game.winner===game.players[1].label+'获胜'?'defeat':'draw',stage=game.resultStage||'verdict',key=generation+':'+outcome+':'+stage;
+  function renderBattleResult(){if(networkHooks?.role==='client'&&$('battlePage').hidden){resultOverlay.hidden=true;return;}if(!game?.winner){arena.inert=false;resultOverlay.hidden=true;resultSignature='';return;}const outcome=game.winner===game.players[0].label+'获胜'?'victory':game.winner===game.players[1].label+'获胜'?'defeat':'draw',stage=game.resultStage||'verdict',key=generation+':'+outcome+':'+stage;
     arena.inert=true;resultOverlay.hidden=false;if(resultSignature===key){resultOverlay.querySelectorAll('.result-return').forEach(b=>b.disabled=busy);return;}resultSignature=key;resultOverlay.className='battle-result-layer result-'+outcome;resultOverlay.replaceChildren();
     const panel=el('div',undefined,'result-panel'),title=el('h1',outcome==='victory'?'胜利':outcome==='defeat'?'败北':'平局','result-title');panel.append(title,el('p','对手 · '+game.players[1].label,'result-opponent'));
     if(stage==='verdict'){const team=el('div',undefined,'result-team'),owner=outcome==='defeat'?1:0,p=game.players[owner],list=mons(p).slice(0,3);if(!list.length){const c=standoutCard(owner);if(c)list.push({id:c.id});}
