@@ -784,7 +784,7 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
       render();const node=arena.querySelector('[data-uid="'+m.uid+'"]');if(speed>0&&node?.animate)node.animate([{filter:'brightness(1.5)',transform:'scale(1.04)'},{filter:'brightness(1)',transform:'scale(1)'}],{duration:250*speed});}
     if(a.type==='attach'){const m=byUid(p,a.uid),before=snapshot();addEnergy(p,m,p.nextEnergy);p.attached=true;
       log(p.label+'给'+info(m).name+'附加'+p.nextEnergy+'能量。');await showChanges(before);}
-    if(a.type==='revive'){const id=p.discard.splice(a.i,1)[0],m=createMon(id,p);putBench(p,m);const victim=game.players[1-owner].active,damage=directHP(victim,10);if(damage)await beat('damage','不朽扣除10HP',{target:victim.uid,amount:'10'},650);refreshAuras();log(p.label+'发动不朽，复活骨龙。');await beat('ability','不朽',{cardId:id,target:m.uid},750);await resolveKO();}
+    if(a.type==='revive'){const id=p.discard.splice(a.i,1)[0],m=createMon(id,p);putBench(p,m);const victim=game.players[1-owner].active,damage=directHP(victim,10);if(damage)await beat('damage','不朽扣除10HP',{target:victim.uid,amount:'10'},650);refreshAuras();log(p.label+'发动不朽，复活寂灭骨龙。');await beat('ability','不朽',{cardId:id,target:m.uid},750);await resolveKO();}
     if(a.type==='ability'&&info(byUid(p,a.uid)).ability!=='氧循环'){if(!await a1Ability(owner,a.uid))return false;}
     if(a.type==='ability'&&info(byUid(p,a.uid)).ability==='氧循环'){const opts=monOptions(p,mons(p).filter(m=>info(m).attribute==='草'&&m.damage>0))
       .map(o=>({...o,score:byUid(p,o.value).damage}));
@@ -1269,7 +1269,7 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     else if(event.type==='place'||event.type==='networkBasic')await sleep(250);
     else await beat(event.type,event.title||'',event,event.duration||500);busy=true;render();}
   // 便于后续扩展与规则验证；决策函数不读取对手手牌内容或牌库顺序。
-  window.RTCGBattle={rules:RULES,defaults:DEFAULTS,skills:SKILLS,cardsVersion:"A0-A1-20261005",
+  window.RTCGBattle={rules:RULES,defaults:DEFAULTS,skills:SKILLS,cardsVersion:"A0-A1-20261005-r2",
     importDecks(incoming){if(!Array.isArray(incoming)||incoming.length>MAX_DECKS)throw new Error('卡组文件格式不正确或超过20组。');const valid=incoming.map(d=>normalizeDeck(d,d.id||crypto.randomUUID()));if(valid.some(d=>!validDeck(d)))throw new Error('文件包含不符合规则的卡组。');const next=savedDecks.filter(d=>!valid.some(x=>x.id===d.id)).concat(valid);if(next.length>MAX_DECKS)throw new Error('导入后超过20组，请先删除部分卡组。');oldPersistDecks(next);return valid.length;},
     networkConfigure,networkCreate,networkSetup,networkLoad,networkPrompt,networkEvent,validDeck,
     get state(){return game;},legalActions,perform,damageFor,canAttack,start,
