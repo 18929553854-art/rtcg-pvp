@@ -867,12 +867,12 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
       case 43:q.deck.push(...q.hand);q.hand=[];shuffle(q.deck);
         await beat('shuffle',q.label+'将手牌放回卡组',{owner:1-owner},450);await animatedDraw(1-owner,3);break;
       case 44:p.wind=(p.wind||0)+1;break;
-      case 45:await extraAttach(owner,'火焰补丁：回收火能量','火',1,[p.active].filter(m=>info(m).attribute==='火'),false);p.discardEnergy.splice(p.discardEnergy.indexOf('火'),1);break;
-      case 46:if(await tossCoin('电气连接 · 投掷硬币')){
-        log('电气连接：正面。');
+      case 45:await extraAttach(owner,'调温球：回收火能量','火',1,[p.active].filter(m=>info(m).attribute==='火'),false);p.discardEnergy.splice(p.discardEnergy.indexOf('火'),1);break;
+      case 46:if(await tossCoin('绝缘球 · 投掷硬币')){
+        log('绝缘球：正面。');
         await beat('coin','正面',{coin:'正',subtitle:'选择1只己方电系精灵附加电能量'},800);
-        await extraAttach(owner,'电气连接','电',1,mons(p).filter(m=>info(m).attribute==='电'));}
-        else {log('电气连接：反面。');await beat('coin','反面',{coin:'反',subtitle:'本次没有附加能量'},800);}break;
+        await extraAttach(owner,'绝缘球','电',1,mons(p).filter(m=>info(m).attribute==='电'));}
+        else {log('绝缘球：反面。');await beat('coin','反面',{coin:'反',subtitle:'本次没有附加能量'},800);}break;
       case 47:p.fightBuff=(p.fightBuff||0)+10;break;
       default:throw new Error('未实现的卡牌：'+c.name);
     }await showChanges(before);await usedCardDiscard(owner,id);
@@ -1456,7 +1456,7 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     else if(event.type==='place'||event.type==='networkBasic')await sleep(250);
     else await beat(event.type,event.title||'',event,event.duration||500);busy=true;render();}
   // 便于后续扩展与规则验证；决策函数不读取对手手牌内容或牌库顺序。
-  window.RTCGBattle={rules:RULES,defaults:DEFAULTS,skills:SKILLS,cardsVersion:"A0-A1-A2-20261007-r16",
+  window.RTCGBattle={rules:RULES,defaults:DEFAULTS,skills:SKILLS,cardsVersion:"A0-A1-A2-20261007-r17",
     importDecks(incoming){if(!Array.isArray(incoming)||incoming.length>MAX_DECKS)throw new Error('卡组文件格式不正确或超过20组。');const valid=incoming.map(d=>normalizeDeck(d,d.id||crypto.randomUUID()));if(valid.some(d=>!validDeck(d)))throw new Error('文件包含不符合规则的卡组。');const next=savedDecks.filter(d=>!valid.some(x=>x.id===d.id)).concat(valid);if(next.length>MAX_DECKS)throw new Error('导入后超过20组，请先删除部分卡组。');oldPersistDecks(next);return valid.length;},
     networkConfigure,networkCreate,networkBeginBattle,networkSetup,networkLoad,networkPrompt,networkEvent,validDeck,
     get state(){return game;},legalActions,perform,damageFor,canAttack,start,
