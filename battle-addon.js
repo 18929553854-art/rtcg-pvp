@@ -1014,7 +1014,11 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     if(a.type==='evolve')return 700+card(p.hand[a.i]).hp;
     if(a.type==='basic')return p.bench.length<2?500:80;
     if(a.type==='revive')return 1100;
-    if(a.type==='ability')return 950;
+    if(a.type==='ability'){
+      // 最好的伙伴会结束回合：先完成常规行动，有技能可用时优先攻击。
+      if(info(byUid(p,a.uid)).ability==='最好的伙伴')return legalActions(owner).some(x=>x.type==='attack')?0:2;
+      return 950;
+    }
     if(a.type==='attach')return 600+energyScore(p,byUid(p,a.uid));
     if(a.type==='trainer'){const n=num(p.hand[a.i]);
       if(n===-1){const name=card(p.hand[a.i]).name;if(name==='安妮'||name==='光合球')return 1200;if(name==='伊里斯'||name==='莫里亚克')return 900;if(name==='远行商人')return p.hand.length<=4?950:0;if(name==='希洛')return q.hand.length>p.magic?650:0;if(name==='露萌')return mons(p).some(m=>info(m).name==='龙息帕尔ex'&&m.damage>=70)?1300:0;if(name==='果冻罐罐')return 500;if(['尖刺头盔','精灵护符'].includes(name))return 800;if(name==='魔力果')return 1300;if(name==='格里芬'||name==='精灵盒子')return 700;if(name==='兰斯洛')return 600;if(name==='斯诺克')return !p.retreated&&p.bench.length?250:0;if(name==='皮卡')return q.hand.length>p.hand.length-1?900:0;}
@@ -1452,7 +1456,7 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     else if(event.type==='place'||event.type==='networkBasic')await sleep(250);
     else await beat(event.type,event.title||'',event,event.duration||500);busy=true;render();}
   // 便于后续扩展与规则验证；决策函数不读取对手手牌内容或牌库顺序。
-  window.RTCGBattle={rules:RULES,defaults:DEFAULTS,skills:SKILLS,cardsVersion:"A0-A1-A2-20261007-r15",
+  window.RTCGBattle={rules:RULES,defaults:DEFAULTS,skills:SKILLS,cardsVersion:"A0-A1-A2-20261007-r16",
     importDecks(incoming){if(!Array.isArray(incoming)||incoming.length>MAX_DECKS)throw new Error('卡组文件格式不正确或超过20组。');const valid=incoming.map(d=>normalizeDeck(d,d.id||crypto.randomUUID()));if(valid.some(d=>!validDeck(d)))throw new Error('文件包含不符合规则的卡组。');const next=savedDecks.filter(d=>!valid.some(x=>x.id===d.id)).concat(valid);if(next.length>MAX_DECKS)throw new Error('导入后超过20组，请先删除部分卡组。');oldPersistDecks(next);return valid.length;},
     networkConfigure,networkCreate,networkBeginBattle,networkSetup,networkLoad,networkPrompt,networkEvent,validDeck,
     get state(){return game;},legalActions,perform,damageFor,canAttack,start,
