@@ -24,17 +24,9 @@
   const RULES = { magic:3, bench:3, opening:5, weakness:20,
     firstPlayerNoEnergy:true, firstPlayerNoAttack:false,
     randomMixedEnergy:true, turnLimit:200 };
-  const deck = (name,energy,entries) => ({id:'default-'+energy,name,
-    isDefault:true,energies:[energy+'属性能量'],
-    cards:entries.map(([n,count])=>({id:makeId(n),count}))});
-  const common = [[31,2],[35,2],[40,2],[41,2]];
-  const DEFAULTS = [
-    deck('草系 · 魔力猫ex恢复流','草',[[1,2],[2,2],[4,2],[5,2],[6,2],...common,[38,2]]),
-    deck('火系 · 火神ex爆发流','火',[[7,2],[8,2],[10,2],[11,2],[12,2],...common,[45,2]]),
-    deck('水系 · 水灵ex能量增效流','水',[[13,2],[14,2],[16,2],[17,2],[18,2],...common,[39,2]]),
-    deck('电系 · 噼啪鸟ex与利灯鱼','电',[[22,2],[23,2],[24,2],...common,[46,2],[34,1],[37,1],[44,1],[33,1]]),
-    deck('斗系 · 罗隐ex与绒光优优','斗',[[25,2],[26,2],[28,2],[29,2],[30,2],...common,[47,1],[44,1]])
-  ];
+  const DEFAULTS = [{id:'fixed-wing-water',name:'无属性 · 翼王水能启动',isDefault:true,strategy:'wing-water',energies:['水属性能量'],cards:[
+    ['A1a-015',2],['A2a-017',2],['A2a-002',2],['A2a-003',2],['A0-031',2],['A0-035',1],['A2a-037',1],['A0-040',2],['A1a-024',1],['A1a-023',1],['A0-033',1],['A0-032',1],['A0-036',1],['A1b-025',1]
+  ].map(([id,count])=>({id,count}))}];
   // cost 中“无”表示任意能量；技能名与原卡牌数据一一对应。
   const SKILLS = {
     '藤绞': ['草,无',40], '盛开':['草',0,'grow'],
@@ -354,7 +346,7 @@
     // 等价于反复重洗直到开局5张中至少包含一张基础精灵。
     let hand;do{shuffle(list);hand=list.slice(0,RULES.opening);}
     while(!hand.some(id=>card(id).stage==='基础'));
-    return {label,displayName:label,avatarId:hand.find(id=>card(id).stage==='基础'),background:backgroundId(d.background),sleeve:sleeveId(d.sleeve),deck:list.slice(RULES.opening),hand,discard:[],discardEnergy:[],
+    return {label,strategy:d.strategy||null,displayName:label,avatarId:hand.find(id=>card(id).stage==='基础'),background:backgroundId(d.background),sleeve:sleeveId(d.sleeve),deck:list.slice(RULES.opening),hand,discard:[],discardEnergy:[],
       types:d.energies.map(energyType),forecast:random(d.energies.map(energyType)),active:null,bench:[],magic:RULES.magic,turns:0};}
   function effectiveEnergy(p,m){return m.energy.flatMap(t=>
     t==='水'&&info(m).attribute==='水'&&mons(p).some(x=>info(x).ability==='浸润')?[t,t]:[t]);}
@@ -401,7 +393,7 @@
       arena.querySelector('[data-anchor="discard-'+owner+'"]')?.animate([{boxShadow:'0 0 24px #a1dcff',transform:'scale(1.06)'},{boxShadow:'0 0 0 transparent',transform:'scale(1)'}],{duration:240*speed});
     }finally{motions.forEach(a=>a.cancel());ghosts.forEach(n=>n.remove());if(scene===current)scene=null;}render();}
   async function discardEnergy(p,m,t,n){const indices=[];m.energy.forEach((type,i)=>{if(type===t&&indices.length<n)indices.push(i);});await discardEnergyIndices(p,m,indices);}
-  function allDecks(){return [...DEFAULTS.map(clone),...savedDecks.map(d=>({...clone(d),isDefault:false}))];}
+  function allDecks(){return DEFAULTS.map(clone);}
 
   // 页面与菜单由扩展自动创建，无需手工改动原 HTML 结构。
   const css=el('style');css.textContent=`
@@ -513,17 +505,12 @@ css.textContent+=".cinema-root{position:fixed;inset:0;z-index:145;pointer-events
   let available=[];
   function renderSetup(){available=allDecks();for(const prefix of ['human','computer']){
     const select=$(prefix+'Deck'),previous=select.value;select.replaceChildren();
-    for(const [kind,label] of [[true,'默认卡组'],[false,'玩家卡组']]){
-      const group=el('optgroup');group.label=label;
-      available.forEach((d,i)=>{if(d.isDefault!==kind)return;const o=el('option',d.name+(kind?'（默认卡组）':''));
-        o.value=String(i);o.disabled=!validDeck(d);group.append(o);});select.append(group);
-    }
-    if(previous&&available[Number(previous)])select.value=previous;
-    else select.value=prefix==='computer'?'3':'0';
+    available.forEach((d,i)=>{const o=el('option',d.name);o.value=String(i);o.disabled=!validDeck(d);select.append(o);});
+    select.value=previous&&available[Number(previous)]?previous:'0';
     select.onchange=()=>preview(prefix);preview(prefix);
   }}
   function preview(prefix){const d=available[Number($(prefix+'Deck').value)];
-    $(prefix+'Preview').textContent=d?`${d.isDefault?'默认卡组':'玩家卡组'} · 能量：${d.energies.join('、')}\n`+
+    $(prefix+'Preview').textContent=d?`固定测试卡组 · 能量：${d.energies.join('、')}\n`+
       d.cards.map(x=>`${card(x.id)?.name||'未知卡牌'} ×${x.count}`).join('、'):'';}
   function scoreMon(p,m){const c=info(m);return c.hp-m.damage+Math.max(...c.skills.map(s=>SKILLS[s][1]))+
     m.energy.length*25+(c.stage==='二阶'?40:0);}
@@ -593,8 +580,8 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     if(queuedHandDrop&&title==='魔力果：选择对应基础精灵'){const uid=queuedHandDrop;queuedHandDrop=null;if(options.some(o=>o.value===uid))return uid;}
     if(networkHooks?.role==='server')return networkHooks.choose(owner,title,options,optional);
     if(title!=='选择撤退后出战的精灵'&&!title.startsWith('恩佐')&&options.length===1&&options.every(o=>o.kind==='mon'||o.kind==='slot'))return options[0].value;
-    if(owner===1){const best=options.slice().sort((a,b)=>(b.score||0)-(a.score||0))[0];
-      return optional&&(best.score||0)<=0?null:best.value;}
+    if(owner===1){const ranked=options.map(o=>({...o,score:aiChoiceScore(owner,title,o)})).sort((a,b)=>b.score-a.score),best=ranked[0];
+      return optional&&best.score<=0?null:best.value;}
     return new Promise(resolve=>{chooser=resolve;selectedTarget=null;
       targetChoice={title,options,optional};dialog.className='';
       if(title.startsWith('魔力果')&&options.length===1&&options[0].targets?.length===1){queuedHandDrop=options[0].targets[0];targetChoice=null;chooser=null;resolve(options[0].value);return;}
@@ -883,13 +870,13 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     if([36,37,44,47].includes(n))await beat('effect',c.name+'效果生效',{subtitle:c.effect},500);
     return true;
   }
-  function searchScore(p,id){const c=card(id);
+  function searchScore(p,id){if(p.strategy==='wing-water')return aiNeedCard(p,id);const c=card(id);
     if(c.evolvesFrom&&mons(p).some(m=>info(m).name===c.evolvesFrom))return 180+c.hp;
     if(c.stage==='基础')return (mons(p).length<2?200:40)+c.hp;
     if(c.evolvesFrom&&p.hand.some(id=>card(id).name===c.evolvesFrom))return 100+c.hp;
     return 20;}
   function energyTarget(p,list=mons(p)){return list.slice().sort((a,b)=>energyScore(p,b)-energyScore(p,a))[0];}
-  function energyScore(p,m){const c=info(m),max=Math.max(...c.skills.map(s=>costFor(p,m,s).length));
+  function energyScore(p,m){if(p.strategy==='wing-water')return aiEnergyPriority(p,m);const c=info(m),max=Math.max(...c.skills.map(s=>costFor(p,m,s).length));
     let s=scoreMon(p,m)+(p.active===m?50:0);if(effectiveEnergy(p,m).length>=max)s-=220;
     if(c.hp-m.damage<=30)s-=100;return s;}
   async function attackWindup(m,release,title='',landingShake=false){if(!hasMotion()){await release();return;}const node=arena.querySelector('[data-uid="'+m.uid+'"]'),r=node?.getBoundingClientRect(),board=rectOf('#battleTable');if(!r||!board){await release();return;}
@@ -1006,7 +993,7 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     const setupPlayerAsync=async owner=>{const p=game.players[owner],setupGeneration=generation;
       if(owner===0&&window.requestAnimationFrame){await new Promise(resolve=>{chooser=resolve;targetChoice={setup:true,title:'初始布阵',options:[]};render();});return;}
       const basics=p.hand.map((id,i)=>({id,i})).filter(x=>card(x.id).stage==='基础');
-      const i=await choose(owner,'选择初始出战精灵',basics.map(x=>({value:x.i,label:card(x.id).name,score:card(x.id).hp})));
+      const i=await choose(owner,'选择初始出战精灵',basics.map(x=>({value:x.i,label:card(x.id).name,score:aiSetupScore(p,x.id,true)})));
       if(owner===1)await sleep(450);if(setupGeneration!==generation)return;
       p.active=createMon(p.hand.splice(i,1)[0],p);render();
       while(p.bench.length<RULES.bench){const opts=p.hand.map((id,i)=>({id,i})).filter(x=>card(x.id).stage==='基础');
@@ -1017,51 +1004,79 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     game.revealed=true;await beat('reveal','双方准备完成',{},1250);await notifyPassiveAbilities();await beat('battleStart','对战开始',{},1800);
     game.phase='play';await beginTurn(first);render();
   }
-  function actionScore(owner,a){const p=game.players[owner],q=game.players[1-owner];
-    if(a.type==='evolve')return 700+card(p.hand[a.i]).hp;
-    if(a.type==='basic')return p.bench.length<2?500:80;
-    if(a.type==='revive')return 1100;
-    if(a.type==='ability'){
-      // 最好的伙伴会结束回合：先完成常规行动，有技能可用时优先攻击。
-      if(info(byUid(p,a.uid)).ability==='最好的伙伴')return legalActions(owner).some(x=>x.type==='attack')?0:2;
-      return 950;
+  // AI uses its own cards and public field/energy only; never opponent hand contents.
+  const aiLoss=m=>/gx/i.test(info(m).name)?3:/ex/i.test(info(m).name)?2:1;
+  const aiPublicCopy=p=>clone({...p,hand:Array(p.hand.length).fill(null),deck:[]});
+  const aiCasualty=m=>info(m).name==='风铃鲨'?50:aiLoss(m)*160;
+  const aiHP=m=>Math.max(0,info(m).hp-m.damage);
+  function aiAttacks(p,q,m=p.active){if(!m||!q.active)return [];return info(m).skills.flatMap(name=>canAttack(p,m,name)?(name==='疾风连袭'?borrowedSkills(p).map(copied=>({name,copied})): [{name}]):[]).map(a=>({...a,damage:damageFor(p,q,m,a.copied||a.name)}));}
+  function aiPublicThreat(q,p,target=p.active,promote=false){if(!target)return 0;const next=aiPublicCopy(q);next.turns++;next.buff=0;next.exBuff=0;next.fightBuff=0;next.jellyBuff=0;next.wind=0;
+    const victim=clone(target);if(victim.protectedUntil<game.totalTurns+1)victim.protectedUntil=-1;const defender={...p,active:victim};let best=0;
+    const sources=promote?next.bench:mons(next);for(const source of sources){const plans=[];if(source===next.active||promote){const attacker=clone(source);if(next.forecast)attacker.energy.push(next.forecast);plans.push(attacker);}else if(next.active&&!next.active.status.some(s=>s==='睡眠'||s==='麻痹')){const cost=Math.max(0,info(next.active).retreat);if(effectiveEnergy(next,next.active).length>=cost){const attacker=clone(source);if(next.forecast)attacker.energy.push(next.forecast);plans.push(attacker);}else if(next.forecast&&effectiveEnergy(next,next.active).length+1>=cost)plans.push(clone(source));}
+      for(const attacker of plans){attacker.status=[];attacker.attackLock=-1;const attacking={...next,active:attacker,bench:mons(next).filter(m=>m.uid!==attacker.uid)};for(const a of aiAttacks(attacking,defender,attacker))best=Math.max(best,a.damage);}}
+    return best;
+  }
+  function aiFatal(p,q,m=p.active,promote=false){return !!m&&(p.magic<=aiLoss(m)||!p.bench.length)&&aiPublicThreat(q,p,m,promote)>=aiHP(m);}
+  function aiEnergyPriority(p,m,type=p.nextEnergy||'水'){const q=game.players[1-game.players.indexOf(p)]||game.players.find(x=>x.label!==p.label);const c=info(m),n=m.energy.length,wing=c.name==='圣羽翼王ex',filled={...m,energy:[...m.energy,type]},self={...p,active:filled};
+    let score=80;if(wing){const waterSource=p.bench.some(x=>info(x).skills.includes('水刃'));const goal=waterSource?2:3;score=n<goal?900+(goal-n===1?200:0):n<3?220:n<4?80:15;}else if(c.name==='翠顶夫人'||c.name==='蓝珠天鹅'){score=n<3?300:20;if(p.active===m&&p.bench.some(x=>info(x).name==='圣羽翼王ex'&&x.energy.length<2))score=n<3?650:20;}else if(c.name==='风铃鲨')score=0;else score=150+Math.max(0,Math.max(...c.skills.map(s=>costFor(p,m,s).length))-n)*90;
+    if(q?.active){const old=aiAttacks({...p,active:m},q,m),fresh=aiAttacks(self,q,filled);if(fresh.some(a=>a.damage>=aiHP(q.active))&&!old.some(a=>a.damage>=aiHP(q.active)))score+=900;if(p.active===m&&aiFatal(p,q,m)&&!fresh.some(a=>a.damage>=aiHP(q.active)))score=Math.min(score,30);}
+    return score;
+  }
+  function aiEffectValue(p,q,m,name){if(['盐水浴','富氧化','过载回路'].includes(name)){const targets=p.bench.filter(x=>info(x).stage==='基础');if(!targets.length)return 0;return Math.min(300,Math.max(...targets.map(x=>aiEnergyPriority(p,x,name==='盐水浴'?'水':name==='富氧化'?'草':'电')))*.22);}if(name==='藏入画中')return 0;if(['盛开','吹火'].includes(name))return 100;return 0;}
+  function aiPosition(p,q){if(!p.active||!q.active)return {value:0,attack:null};const fatal=aiFatal(p,q),threat=aiPublicThreat(q,p),hp=aiHP(p.active);let best={value:fatal?-30000:threat>=hp?-aiCasualty(p.active):0,attack:null};
+    for(const a of aiAttacks(p,q)){const effect=aiEffectValue(p,q,p.active,a.copied||a.name);if(a.damage<=0&&effect<=0)continue;const ko=a.damage>=aiHP(q.active)&&a.damage>0;let value=Math.min(a.damage,aiHP(q.active))*3+effect;if(ko){value+=6500;if(q.magic<=aiLoss(q.active)||!q.bench.length)value=100000;}
+      {const reflected=a.damage>0?((card(q.active.tool)?.name==='尖刺头盔'?20:0)+(info(q.active).ability==='刺肤'?20:0)):0;const victim={...p.active,damage:p.active.damage+reflected};if(aiHP(victim)<=0&&(p.magic<=aiLoss(victim)||!p.bench.length))value=value>=100000?0:-100000;else if(value<100000&&aiFatal(p,q,victim,ko))value-=30000;else if(value<100000&&aiPublicThreat(q,p,victim,ko)>=aiHP(victim))value-=aiCasualty(p.active);}
+      if(value>best.value)best={value,attack:a};}
+    return best;
+  }
+  function aiRetreatOptions(p,q,extraWind=0){if(!p.active||p.retreated||p.active.retreatLock===p.turns||p.active.status.some(s=>s==='睡眠'||s==='麻痹'))return [];const cost=Math.max(0,info(p.active).retreat-(p.wind||0)-extraWind);const out=[];
+    for(const m of p.bench){const copy=clone(p),old=copy.active,target=byUid(copy,m.uid);let paid=0;while(paid<cost&&old.energy.length){const t=old.energy.shift();paid+=t==='水'&&info(old).attribute==='水'&&mons(copy).some(x=>info(x).ability==='浸润')?2:1;}if(paid<cost)continue;
+      if(info(old).ability==='洁癖'){target.energy.push(...old.energy);old.energy=[];}swap(copy,target);const line=aiPosition(copy,q);out.push({uid:m.uid,cost,value:line.value,attack:line.attack,safe:!aiFatal(copy,q),state:copy});}
+    return out;
+  }
+  function aiBestRetreat(p,q,extraWind=0){const stay=aiPosition(p,q);return aiRetreatOptions(p,q,extraWind).filter(x=>x.value>stay.value+35).sort((a,b)=>b.value-a.value||a.cost-b.cost)[0]||null;}
+  function aiNeedCard(p,id){const c=card(id);if(!c)return 0;const field=mons(p),have=name=>field.filter(m=>info(m).name===name).length+p.hand.filter(x=>card(x).name===name).length;
+    if(p.strategy==='wing-water'){if(c.name==='圣羽翼王ex')return have(c.name)===0?1100:have(c.name)===1?450:20;if(c.name==='翠顶夫人')return field.some(m=>info(m).name==='蓝珠天鹅')&&!have(c.name)?1050:!have(c.name)&&have('蓝珠天鹅')?600:20;if(c.name==='蓝珠天鹅')return !have(c.name)&&!have('翠顶夫人')?800:have(c.name)+have('翠顶夫人')<2?250:20;if(c.name==='风铃鲨')return !have(c.name)&&!field.some(m=>info(m).name==='圣羽翼王ex'&&m.energy.length>=2)?650:20;}
+    if(c.evolvesFrom&&field.some(m=>info(m).name===c.evolvesFrom)&&!p.hand.includes(id))return 500+c.hp;return c.stage==='基础'&&field.length<2?300:20;
+  }
+  function aiReturnCard(p,index){const id=p.hand[index],c=card(id);if(c.category!=='精灵')return -1000;const field=mons(p),countName=name=>field.filter(m=>info(m).name===name).length+p.hand.filter(x=>card(x).name===name).length;let score=-600;if(countName(c.name)>1)score=250;if(c.name==='风铃鲨'&&field.some(m=>info(m).name==='圣羽翼王ex'&&m.energy.length>=2))score=450;if(c.evolvesFrom&&!field.some(m=>info(m).name===c.evolvesFrom)&&!p.hand.some(x=>card(x).name===c.evolvesFrom))score=350;return score;}
+  function aiGustValue(p,q,target){const switched=aiPublicCopy(q),m=byUid(switched,target.uid);swap(switched,m);return aiPosition(p,switched).value;}
+  function aiSetupScore(p,id,active=false){const name=card(id).name;if(p.strategy!=='wing-water')return card(id).hp;if(active)return name==='风铃鲨'?1000:name==='蓝珠天鹅'?700:name==='圣羽翼王ex'?300:100;const field=mons(p),have=name=>field.filter(m=>info(m).name===name).length;if(name==='风铃鲨')return field.some(m=>info(m).name==='圣羽翼王ex'&&m.energy.length>=2)||have(name)?0:field.length>=3?0:80;if(name==='圣羽翼王ex')return have(name)<2?500-have(name)*150:0;if(name==='蓝珠天鹅')return have(name)+have('翠顶夫人')<1?450:field.length<3?150:0;return 0;}
+  function aiChoiceScore(owner,title,o){const p=game.players[owner],q=game.players[1-owner];if(title==='选择初始出战精灵')return aiSetupScore(p,p.hand[o.value],true);if(title==='选择初始备战精灵（可跳过）')return aiSetupScore(p,p.hand[o.value]);if(title==='精灵盒子：选择放回卡组的精灵')return aiReturnCard(p,o.value);if(title.startsWith('恩佐'))return aiGustValue(p,q,byUid(q,o.value));if(title==='选择接替出战的精灵'||title==='路易斯：选择自己的精灵出战'){const copy=clone(p),target=byUid(copy,o.value);if(!target)return o.score||0;copy.bench=copy.bench.filter(m=>m.uid!==target.uid);copy.active=target;return aiPosition(copy,q).value;}if(title==='选择附加精灵护符的精灵'){const m=byUid(p,o.value);return m?(m===p.active&&aiFatal(p,q)&&aiPublicThreat(q,p,m)<aiHP(m)+20?10000:info(m).name==='圣羽翼王ex'?600+(m===p.active?100:0):0):0;}if(['选择萌萌的目标','选择光合治愈的目标','选择易西的目标'].includes(title)){const m=byUid(p,o.value),amount=title.includes('萌萌')?30:title.includes('易西')?50:20;return m?(m===p.active&&aiFatal(p,q)&&aiPublicThreat(q,p,m)<aiHP(m)+Math.min(amount,m.damage)?10000:m.damage+(m===p.active?100:0)):0;}return o.score||0;}
+  function aiCompressScore(owner,index){const p=game.players[owner];if(p.supporter||card(p.hand[index]).category!=='物品')return 0;const reset=p.hand.findIndex(id=>['可丽希亚','远行商人'].includes(card(id).name));if(reset<0)return 0;const drawScore=actionScore(owner,{type:'trainer',i:reset});if(drawScore<=0)return 0;const tactical=p.hand.some((id,i)=>['斯诺克','恩佐','路易斯','小洛克'].includes(card(id).name)&&actionScore(owner,{type:'trainer',i})>drawScore);return tactical?0:drawScore+35;}
+  function actionScore(owner,a){const p=game.players[owner],q=game.players[1-owner],stay=aiPosition(p,q),urgent=aiFatal(p,q),retreat=aiBestRetreat(p,q);
+    if(a.type==='attack'){const attack=aiAttacks(p,q).find(x=>x.name===a.name&&x.copied===a.copied);if(!attack)return 0;const effect=aiEffectValue(p,q,p.active,a.copied||a.name);if(attack.damage<=0&&effect<=0)return 0;if(stay.attack?.name===a.name&&stay.attack?.copied===a.copied){if(stay.value>=100000)return stay.value;if(urgent&&stay.value<0){const escape=retreat||(!p.supporter&&p.hand.some(id=>card(id).name==='斯诺克')&&aiBestRetreat(p,q,2));return escape?0:120+attack.damage+effect;}return Math.max(2,150+stay.value);}return 0;}
+    if(a.type==='retreat'){const plan=aiRetreatOptions(p,q).find(x=>x.uid===a.uid);return plan&&plan.value>stay.value+35?(urgent&&plan.safe?45000:plan.value>=100000?85000:2500+Math.max(0,plan.value-stay.value)):0;}
+    if(a.type==='attach'){const m=byUid(p,a.uid),copy=clone(p),target=byUid(copy,a.uid);target.energy.push(p.nextEnergy);const escape=aiBestRetreat(copy,q);return urgent&&escape?.safe?44000:1800+aiEnergyPriority(p,m);}
+    if(a.type==='evolve'){const copy=clone(p),m=byUid(copy,a.uid);m.id=p.hand[a.i];m.stack.push(m.id);const escape=aiBestRetreat(copy,q);return urgent&&(!aiFatal(copy,q)||escape?.safe)?46000:1600+(info(m).name==='翠顶夫人'?400:0);}
+    if(a.type==='basic'){const id=p.hand[a.i],score=aiSetupScore(p,id);if(score<=0)return 0;return 1400+score;}
+    if(a.type==='revive')return 800;
+    if(a.type==='ability'){const name=info(byUid(p,a.uid)).ability;return name==='最好的伙伴'?(!aiAttacks(p,q).some(x=>x.damage>0)?80:0):950;}
+    if(a.type==='trainer'){const c=card(p.hand[a.i]),name=c.name,n=num(c.id);
+      if(name==='斯诺克'||name==='风场魔法'){const extra=name==='斯诺克'?2:1,plan=aiBestRetreat(p,q,extra);if(!plan||Math.max(0,info(p.active).retreat-(p.wind||0))===0)return name==='风场魔法'?aiCompressScore(owner,a.i):0;const noCard=aiRetreatOptions(p,q).find(x=>x.uid===plan.uid);if(noCard&&noCard.value>=plan.value-35)return 0;return urgent&&plan.safe?47000:3200+Math.max(0,plan.value-stay.value);}
+      if(name==='恩佐'){const targets=q.bench.filter(m=>m.damage>0);const best=Math.max(-Infinity,...targets.map(m=>aiGustValue(p,q,m)));return best>stay.value+100?(best>=100000?90000:urgent&&best>=0?48000:4000+best-stay.value):0;}
+      if(name==='路易斯'){if(!q.bench.length)return 0;const worst=Math.min(...q.bench.map(m=>aiGustValue(p,q,m)));return worst>stay.value+100?(worst>=100000?90000:urgent&&worst>=0?48000:3600+worst-stay.value):0;}
+      if([36,37,47].includes(n)){if(n===47&&info(p.active).attribute!=='斗'||n===36&&!/ex|gx/i.test(info(q.active).name))return 0;const bonus=n===36?20:10;return aiAttacks(p,q).some(x=>x.damage>0&&x.damage<aiHP(q.active)&&x.damage+bonus>=aiHP(q.active))?q.magic<=aiLoss(q.active)?95000:8000:0;}
+      if(name==='精灵护符'){const saves=mons(p).some(m=>!m.tool&&p.active===m&&urgent&&aiPublicThreat(q,p,m)<aiHP(m)+20);return saves?49000:mons(p).some(m=>!m.tool&&info(m).name==='圣羽翼王ex')?1500:0;}
+      if(name==='精灵盒子'){const returns=p.hand.map((_,i)=>aiReturnCard(p,i)).filter(x=>x>0),wanted=p.deck.filter(id=>card(id).category==='精灵').map(id=>aiNeedCard(p,id));return returns.length&&Math.max(0,...wanted)>250?1400+Math.max(...wanted):0;}
+      if(n===40||n===41){const wanted=p.deck.filter(id=>n===40?card(id).stage==='基础':card(id).stage==='一阶');const best=Math.max(0,...wanted.map(id=>aiNeedCard(p,id)));return best>100?1700+best:0;}
+      if(n===31)return p.deck.length?1100:0;
+      if(n===35||name==='远行商人'){const gain=4-(p.hand.length-1);const important=p.hand.some((id,i)=>i!==a.i&&card(id).category==='精灵'&&aiReturnCard(p,i)<0);return p.deck.length&&gain>0?1000+gain*30:!important&&gain===0?300:0;}
+      if([34,38,39,42].includes(n)){const amount=n===38?50:n===39?40:n===42?20:30;const candidates=mons(p).filter(m=>n!==38||info(m).attribute==='草').filter(m=>n!==39||m.energy.includes('水'));return candidates.some(m=>m===p.active&&urgent&&aiPublicThreat(q,p,m)<aiHP(m)+Math.min(amount,m.damage))?48000:candidates.some(m=>m.damage>=amount)?700:0;}
+      if(n===43||name==='希洛')return q.hand.length>(n===43?3:p.magic)?350:0;
+      if(name==='格里芬')return p.deck.some(id=>/ex|gx/i.test(card(id).name)&&aiNeedCard(p,id)>100)?1800:0;
+      if(n===45||n===46)return 1200;if(name==='光合球'||name==='魔力果')return 1400;return 0;
     }
-    if(a.type==='attach')return 600+energyScore(p,byUid(p,a.uid));
-    if(a.type==='trainer'){const n=num(p.hand[a.i]);
-      if(n===-1){const name=card(p.hand[a.i]).name;if(name==='安妮'||name==='光合球')return 1200;if(name==='伊里斯'||name==='莫里亚克')return 900;if(name==='远行商人')return p.hand.length<=4?950:0;if(name==='希洛')return q.hand.length>p.magic?650:0;if(name==='露萌')return mons(p).some(m=>info(m).name==='龙息帕尔ex'&&m.damage>=70)?1300:0;if(name==='果冻罐罐')return 500;if(['尖刺头盔','精灵护符'].includes(name))return 800;if(name==='魔力果')return 1300;if(name==='格里芬'||name==='精灵盒子')return 700;if(name==='兰斯洛')return 600;if(name==='斯诺克')return !p.retreated&&p.bench.length?250:0;if(name==='皮卡')return q.hand.length>p.hand.length-1?900:0;}
-      if(n===31)return 1100;if(n===35)return p.hand.length<=3?1000:0;
-      if(n===40||n===41)return 1050;if(n===45||n===46)return 900;
-      if([34,38,39,42].includes(n))return 850;
-      if(n===44)return !p.retreated&&p.bench.length&&p.active.energy.length<info(p.active).retreat?400:0;
-      const attacks=info(p.active).skills.filter(s=>canAttack(p,p.active,s));
-      if([36,37,47].includes(n)){const bonus=n===36?20:10;
-        return attacks.some(s=>{const d=damageFor(p,q,p.active,s),hp=info(q.active).hp-q.active.damage;
-          return d>0&&d<hp&&d+bonus>=hp&&(n!==36||/ex|gx/i.test(info(q.active).name));})?1200:0;}
-      if(n===33||n===32)return 0;
-      if(n===43)return q.hand.length>p.magic?300:0;return 0;}
-    if(a.type==='retreat'){const m=byUid(p,a.uid);const old=info(p.active).skills.filter(s=>canAttack(p,p.active,s));
-      const fresh=info(m).skills.filter(s=>canAttack(p,m,s));
-      const best=x=>x.length?Math.max(...x.map(s=>damageFor(p,q,m,s))):0;
-      const current=old.length?Math.max(...old.map(s=>damageFor(p,q,p.active,s))):0;
-      const cost=Math.max(0,info(p.active).retreat-(p.wind||0));
-      if(info(m).ability==='哨兵'&&mons(q).some(x=>info(x).hp-x.damage<=20))return 1400;
-      if(best(fresh)>current+20+cost*20)return 550;
-      const publicThreat=Math.max(...info(q.active).skills.map(s=>damageFor(q,p,q.active,s)));
-      if(info(p.active).hp-p.active.damage<=publicThreat&&info(m).hp-m.damage>publicThreat&&fresh.length)return 500;
-      return 0;}
-    if(a.type==='attack'){const d=damageFor(p,q,p.active,a.copied||a.name),hp=info(q.active).hp-q.active.damage;
-      if(d>=hp)return 2000+(q.magic<=(/gx/i.test(info(q.active).name)?3:/ex/i.test(info(q.active).name)?2:1)?5000:0);
-      return 150+d+(a.name==='盛开'?120:0)+(a.name==='吹火'?35:0);}
     return a.type==='end'?1:0;
   }
   async function aiTurn(token){if(networkHooks)return;if(token!==generation||!game||game.winner||game.current!==1||busy)return;
     busy=true;render();try{
-      for(let i=0;i<60&&game.current===1&&!game.winner;i++){
-        await sleep(350);
-        const actions=legalActions(1).map(a=>({a,s:actionScore(1,a)})).sort((a,b)=>b.s-a.s);
-        const picked=actions[0]?.a||{type:'end'};await perform(1,picked);
+      const rejected=new Set();for(let i=0;i<60&&token===generation&&game.current===1&&!game.winner;i++){
+        await sleep(350);if(token!==generation)return;
+        const actions=legalActions(1).filter(a=>!rejected.has(JSON.stringify(a))).map(a=>({a,s:actionScore(1,a)})).sort((a,b)=>b.s-a.s);
+        const picked=actions[0]?.a||{type:'end'};if(await perform(1,picked))rejected.clear();else rejected.add(JSON.stringify(picked));
       }
-      if(game.current===1&&!game.winner)await perform(1,{type:'end'});
+      if(token===generation&&game.current===1&&!game.winner)await perform(1,{type:'end'});
     }catch(e){log('对手行动异常：'+e.message);if(!game.winner&&game.current===1)await beginTurn(0);console.error(e);}
     finally{busy=false;render();}
   }
@@ -1494,7 +1509,7 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     else if(event.type==='place'||event.type==='networkBasic')await sleep(250);
     else await beat(event.type,event.title||'',event,event.duration||500);busy=true;render();}
   // 便于后续扩展与规则验证；决策函数不读取对手手牌内容或牌库顺序。
-  window.RTCGBattle={rules:RULES,defaults:DEFAULTS,skills:SKILLS,cardsVersion:"A0-A1-A2-20261008-r30",
+  window.RTCGBattle={rules:RULES,defaults:DEFAULTS,skills:SKILLS,cardsVersion:"A0-A1-A2-20261008-r31",
     importDecks(incoming){if(!Array.isArray(incoming)||incoming.length>MAX_DECKS)throw new Error('卡组文件格式不正确或超过20组。');const valid=incoming.map(d=>normalizeDeck(d,d.id||crypto.randomUUID()));if(valid.some(d=>!validDeck(d)))throw new Error('文件包含不符合规则的卡组。');const next=savedDecks.filter(d=>!valid.some(x=>x.id===d.id)).concat(valid);if(next.length>MAX_DECKS)throw new Error('导入后超过20组，请先删除部分卡组。');oldPersistDecks(next);return valid.length;},
     networkConfigure,networkCreate,networkBeginBattle,networkSetup,networkLoad,networkPrompt,networkEvent,validDeck,
     get state(){return game;},legalActions,perform,damageFor,canAttack,start,
