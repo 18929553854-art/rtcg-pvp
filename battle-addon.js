@@ -484,7 +484,7 @@ css.textContent+=".cinema-root{position:fixed;inset:0;z-index:145;pointer-events
   pvp.onclick=()=>alert('暂未开发');
   const selection=el('section');selection.id='battleSetupPage';selection.hidden=true;
   selection.innerHTML=`<div class="header"><h1>对战测试</h1><button id="battleSetupBack">返回主菜单</button></div>
-    <div class="panel"><p class="muted">双方均可选择默认卡组或自己保存的卡组，也可以选择同一套。</p>
+    <div class="panel"><p class="muted">双方仅可选择固定测试卡组，也可以选择同一套。</p>
     <div class="battle-grid"><div><label for="humanDeck">自己的卡组</label><select id="humanDeck"></select><div id="humanPreview" class="battle-preview"></div></div>
     <div><label for="computerDeck">对手的卡组</label><select id="computerDeck"></select><div id="computerPreview" class="battle-preview"></div></div></div>
     <div class="battle-actions"><button id="beginBattle" class="primary">开始对战</button></div>
