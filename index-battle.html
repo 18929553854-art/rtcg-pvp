@@ -2492,7 +2492,7 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     else if(event.type==='place'||event.type==='networkBasic')await sleep(250);
     else await beat(event.type,event.title||'',event,event.duration||500);busy=true;render();}
   // 便于后续扩展与规则验证；决策函数不读取对手手牌内容或牌库顺序。
-  window.RTCGBattle={rules:RULES,defaults:DEFAULTS,skills:SKILLS,cardsVersion:"A0-A1-A2-20261008-r28",
+  window.RTCGBattle={rules:RULES,defaults:DEFAULTS,skills:SKILLS,cardsVersion:"A0-A1-A2-20261008-r29",
     importDecks(incoming){if(!Array.isArray(incoming)||incoming.length>MAX_DECKS)throw new Error('卡组文件格式不正确或超过20组。');const valid=incoming.map(d=>normalizeDeck(d,d.id||crypto.randomUUID()));if(valid.some(d=>!validDeck(d)))throw new Error('文件包含不符合规则的卡组。');const next=savedDecks.filter(d=>!valid.some(x=>x.id===d.id)).concat(valid);if(next.length>MAX_DECKS)throw new Error('导入后超过20组，请先删除部分卡组。');oldPersistDecks(next);return valid.length;},
     networkConfigure,networkCreate,networkBeginBattle,networkSetup,networkLoad,networkPrompt,networkEvent,validDeck,
     get state(){return game;},legalActions,perform,damageFor,canAttack,start,
