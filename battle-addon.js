@@ -1327,8 +1327,34 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     if(possible){if(selectedTarget===value)node.classList.add('target-selected');node.onclick=()=>chooseTarget(value);}
     return true;}
   const modifierSignatures=new Map();
-  function damageModifiers(owner,m){const p=game.players[owner],q=game.players[1-owner],c=info(m);return {up:!!((p.buff||0)||(p.exBuff||0)||(c.attribute==='斗'&&p.fightBuff)||(fromJelly(m)&&p.jellyBuff)||m.refraction||c.ability==='电流刺激'&&m.entered===p.turns||c.ability==='悲悯'&&p.magic<RULES.magic||c.ability==='月光审判'&&/ex|gx/i.test((q.active?info(q.active):null)?.name||'')||c.ability==='悼亡'&&(p.magic<RULES.magic||q.magic<RULES.magic)||c.ability==='得寸进尺'&&p.bench.some(x=>info(x).attribute==='水')),down:m.status.length>0||m.lullaby===p.turns||mons(q).some(x=>info(x)?.ability==='复方汤剂'||info(x)?.ability==='吉利丁片')||(q.active?info(q.active):null)?.ability==='偏振'};}
-  function appendDamageModifiers(box,owner,m){const flags=damageModifiers(owner,m),sig=JSON.stringify([flags,game.players[owner].buff||0,game.players[owner].exBuff||0,game.players[owner].fightBuff||0,game.players[owner].jellyBuff||0,m.refraction||0]),key=generation+':'+m.uid,old=modifierSignatures.get(key);modifierSignatures.set(key,sig);for(const mode of ['up','down'])if(flags[mode]){const badge=el('span',undefined,'damage-modifier '+mode);badge.title=mode==='up'?'伤害强化':'对方效果影响';badge.append(el('i'));box.append(badge);}if(old!==sig&&(flags.up||flags.down)){const pulse=el('span',undefined,'modifier-pulse '+(flags.up?'up':'down'));box.append(pulse);}}
+  function currentMonEffects(owner,m){const p=game.players[owner],q=game.players[1-owner],c=info(m),up=[],down=[];
+    const add=(list,name,text,duration)=>list.push({name,text,duration});
+    if(p.buff)add(up,'菲尔特',`对对方战斗区精灵的技能伤害 +${p.buff}。`,'本回合');
+    if(p.exBuff)add(up,'小洛克',`对对方战斗区 ex / gx 精灵的技能伤害 +${p.exBuff}。`,'本回合；仅对 ex / gx 生效');
+    if(c.attribute==='斗'&&p.fightBuff)add(up,'斗属性强化',`对对方战斗区精灵的技能伤害 +${p.fightBuff}。`,'本回合');
+    if(fromJelly(m)&&p.jellyBuff)add(up,'果冻罐罐',`对对方战斗区精灵的技能伤害 +${p.jellyBuff}。`,'本回合');
+    if(m.refraction)add(up,'折射',`技能伤害 +${m.refraction*20}；技能所需无属性能量减少 ${m.refraction} 个。`,'离开战斗区解除；进化保留');
+    if(c.ability==='电流刺激'&&m.entered===p.turns)add(up,c.ability,'对对方战斗区精灵的技能伤害 +30。','在自己本回合换位后生效');
+    if(c.ability==='悲悯'&&p.magic<RULES.magic)add(up,c.ability,`技能伤害 +${(RULES.magic-p.magic)*20}。`,'随己方已损失魔力值变化');
+    if(c.ability==='悼亡'&&(p.magic<RULES.magic||q.magic<RULES.magic))add(up,c.ability,`技能伤害 +${(RULES.magic-p.magic+RULES.magic-q.magic)*20}。`,'随双方已损失魔力值变化');
+    if(c.ability==='月光审判'&&q.active&&/ex|gx/i.test(info(q.active).name))add(up,c.ability,'对对方战斗区精灵的技能伤害 +30。','对方战斗区为 ex / gx 时生效');
+    if(c.ability==='得寸进尺'){const n=p.bench.filter(x=>info(x).attribute==='水').length;if(n)add(up,c.ability,`对对方战斗区精灵的技能伤害 +${n*20}。`,'随己方备战区水属性精灵数量变化');}
+    if(m.lullaby>=p.turns)add(down,'摇篮曲','技能所需无属性能量增加 1 个。',m.lullaby===p.turns?'本回合结束解除':'下个自己回合生效；该回合结束解除');
+    const gel=mons(q).filter(x=>info(x).ability==='吉利丁片');if(gel.length)add(down,'吉利丁片',`对对方战斗区精灵的技能伤害减少 ${gel.length*10}。`,'对方特性生效期间');
+    const soup=mons(q).filter(x=>info(x).ability==='复方汤剂');if(soup.length)add(down,'复方汤剂',`中毒检查伤害额外增加 ${soup.length*10}。${m.status.includes('中毒')?'':'当前未中毒。'}`,'对方特性生效期间；仅中毒时结算');
+    if(q.active&&info(q.active).ability==='偏振')add(down,'偏振','对对方战斗区精灵的技能伤害减少 20。','对方战斗区特性生效期间');
+    if(m.attackLock>=p.turns)add(down,'技能封锁','无法发动攻击技能。',m.attackLock===p.turns?'本回合结束解除':'下个自己回合生效');
+    if(m.retreatLock>=p.turns)add(down,'禁止撤退','无法撤退。','离开战斗区或进化解除');
+    return {up,down};
+  }
+  function damageModifiers(owner,m){const effects=currentMonEffects(owner,m);return {up:effects.up.length>0,down:effects.down.length>0};}
+  function effectBadge(mode,owner,m){const badge=el('span',undefined,'damage-modifier '+mode);badge.append(el('i'));badge.setAttribute('role','button');badge.tabIndex=0;badge.setAttribute('aria-label',`查看${info(m).name}的${mode==='up'?'增益':'减益'}效果`);badge.title='点击查看当前效果';badge.onpointerdown=e=>e.stopPropagation();badge.onclick=e=>{e.stopPropagation();showMonEffects(owner,m,mode);};badge.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();showMonEffects(owner,m,mode);}};return badge;}
+  function appendDamageModifiers(box,owner,m){const effects=currentMonEffects(owner,m),sig=JSON.stringify(effects),key=generation+':'+m.uid,old=modifierSignatures.get(key);modifierSignatures.set(key,sig);const rack=el('span',undefined,'modifier-rack');for(const mode of ['up','down'])if(effects[mode].length)rack.append(effectBadge(mode,owner,m));box.append(rack);if(old!==sig&&(effects.up.length||effects.down.length)){const pulse=el('span',undefined,'modifier-pulse '+(effects.up.length?'up':'down'));box.append(pulse);}}
+  let monEffectsDialog=null;
+  function showMonEffects(owner,m,mode){if(!monEffectsDialog){monEffectsDialog=el('dialog',undefined,'mon-effects-dialog');monEffectsDialog.id='monEffectsDialog';document.body.append(monEffectsDialog);monEffectsDialog.addEventListener('click',e=>{if(e.target===monEffectsDialog)monEffectsDialog.close();});}
+    const effects=currentMonEffects(owner,m),rows=effects[mode];monEffectsDialog.replaceChildren();monEffectsDialog.append(el('small',game.players[owner].label,'effect-owner'),el('h2',info(m).name+' · '+(mode==='up'?'增益效果':'减益效果')));const list=el('div',undefined,'mon-effects-list');for(const item of rows){const row=el('section',undefined,'mon-effect-row '+mode),symbol=el('span',undefined,'effect-row-symbol '+mode);symbol.append(el('i'));const body=el('div');body.append(el('h3',item.name),el('p',item.text),el('small',item.duration));row.append(symbol,body);list.append(row);}if(!rows.length)list.append(el('p','当前没有此类效果。'));monEffectsDialog.append(list,actionButton('关闭',()=>monEffectsDialog.close()));monEffectsDialog.showModal();
+  }
+  function appendInspectEffects(host,owner,m){if(!m)return;const effects=currentMonEffects(owner,m),rack=el('div',undefined,'inspect-effect-rack');for(const mode of ['up','down'])if(effects[mode].length)rack.append(effectBadge(mode,owner,m));host.append(rack);}
   function renderMon(owner,m,active){const p=game.players[owner],box=el('button',undefined,'table-card'+(active?' active':''));
     box.type='button';box.dataset.owner=String(owner);box.dataset.uid=String(m.uid);box.dataset.anchor='card-'+m.uid;if(active)box.dataset.battleSlot='true';
     const concealed=!!m.concealed||owner===1&&game.phase==='setup'&&!game.revealed&&!m.setupShown;
@@ -1364,7 +1390,7 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     const benchAbility=!viewOnly&&m&&owner===0&&p.active!==m&&enabled&&ACTIVE_ABILITIES.includes(c.ability);
     if(!attacking&&!benchAbility){
       inspector.className='raw-card-dialog';inspector.replaceChildren();
-      const image=el('div',undefined,'raw-card-art');image.append(artwork(c,'inspect-raw'));inspector.append(image);if(m?.tool){const tool=actionButton('查看道具 · '+card(m.tool).name,()=>{inspector.close();inspectCard(card(m.tool),owner,null,null,true);});tool.className='raw-tool-link';inspector.append(tool);}
+      const image=el('div',undefined,'raw-card-art');image.append(artwork(c,'inspect-raw'));appendInspectEffects(image,owner,m);inspector.append(image);if(m?.tool){const tool=actionButton('查看道具 · '+card(m.tool).name,()=>{inspector.close();inspectCard(card(m.tool),owner,null,null,true);});tool.className='raw-tool-link';inspector.append(tool);}
       inspector.setAttribute('aria-label','查看'+c.name+'，点击任意位置返回');inspector.onclick=()=>inspector.close();
       inspector.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();inspector.close();}};
       inspector.showModal();return;
@@ -1373,7 +1399,7 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     inspector.className=(attacking||benchAbility)?'card-zoom-dialog attack-dialog':'card-zoom-dialog';
     const main=attributeColor(c.attribute);inspector.style.setProperty('--attribute-main',main);inspector.style.setProperty('--skill-top',main);inspector.style.setProperty('--skill-bottom',main);
     inspector.replaceChildren();const top=el('div',undefined,'inspect-close');top.append(el('h2',c.name),actionButton('返回桌面',()=>inspector.close()));
-    const frame=el('div',undefined,'zoom-frame'),art=el('div',undefined,'zoom-card');art.append(artwork(c,'inspect'));frame.append(art);
+    const frame=el('div',undefined,'zoom-frame'),art=el('div',undefined,'zoom-card');art.append(artwork(c,'inspect'));appendInspectEffects(art,owner,m);frame.append(art);
     const buttons=el('div',undefined,'zoom-controls');
     const run=fn=>()=>{inspector.close();fn();};
     if(m?.tool)buttons.append(actionButton('查看道具 · '+card(m.tool).name,()=>{inspector.close();inspectCard(card(m.tool),owner);}));
@@ -1592,13 +1618,15 @@ body:has(#battlePage:not([hidden])){background:#dbe7ed}#battlePage{isolation:iso
     else if(event.type==='place'||event.type==='networkBasic')await sleep(250);
     else await beat(event.type,event.title||'',event,event.duration||500);busy=true;render();}
   // 便于后续扩展与规则验证；决策函数不读取对手手牌内容或牌库顺序。
-  window.RTCGBattle={rules:RULES,defaults:DEFAULTS,skills:SKILLS,cardsVersion:"A0-A1-A2-20261009-r42",
+  window.RTCGBattle={rules:RULES,defaults:DEFAULTS,skills:SKILLS,cardsVersion:"A0-A1-A2-20261009-r43",
     importDecks(incoming){if(!Array.isArray(incoming)||incoming.length>MAX_DECKS)throw new Error('卡组文件格式不正确或超过20组。');const valid=incoming.map(d=>normalizeDeck(d,d.id||crypto.randomUUID()));if(valid.some(d=>!validDeck(d)))throw new Error('文件包含不符合规则的卡组。');const next=savedDecks.filter(d=>!valid.some(x=>x.id===d.id)).concat(valid);if(next.length>MAX_DECKS)throw new Error('导入后超过20组，请先删除部分卡组。');oldPersistDecks(next);return valid.length;},
     networkConfigure,networkCreate,networkBeginBattle,networkSetup,networkLoad,networkPrompt,networkEvent,validDeck,
     get state(){return game;},legalActions,perform,damageFor,canAttack,start,
     actionScore,aiTurnActions,resolveKO,beginTurn,applyStatus,statusCheckup,finishTurn,clearStatus,placeSetup,animatedDraw,openingDeal,placeOpponentBench,moveEnergyUI,standoutCard,recordContribution,
     setAnimationScale(value){speed=networkHooks?.role==='client'?1:Math.max(0,Number(value)||0);},
     get choice(){return targetChoice;},finishChoice};
+
+  css.textContent+=`#battlePage .modifier-rack{position:absolute;right:0;top:24px;transform:translateX(45%);display:flex;flex-direction:column;gap:5px;z-index:12}#battlePage .damage-modifier,.inspect-effect-rack .damage-modifier{position:relative;right:auto;top:auto;width:24px;height:24px;box-sizing:border-box;border:1px solid #e8eef2;border-radius:50%;background:linear-gradient(145deg,#fff 45%,#edf2f6);box-shadow:0 2px 4px #17384b28,inset 0 1px 1px #fff;display:grid;place-items:center;cursor:pointer;touch-action:manipulation}.damage-modifier i,.effect-row-symbol i{width:14px;height:12px;clip-path:polygon(50% 0,100% 100%,0 100%);background:linear-gradient(#ff737a,#e83d4b);filter:drop-shadow(0 1px 0 #b8223226)}.damage-modifier.down i,.effect-row-symbol.down i{clip-path:polygon(0 0,100% 0,50% 100%);background:linear-gradient(#70dca0,#29a56e)}#battlePage .damage-modifier:focus-visible,.inspect-effect-rack .damage-modifier:focus-visible{outline:2px solid #34b9d3;outline-offset:3px}.damage-modifier:before{content:'';position:absolute;inset:-5px;border-radius:50%}#battlePage .table-card.active .modifier-rack{top:30px}.inspect-effect-rack{position:absolute;right:0;top:13%;transform:translateX(45%);display:flex;flex-direction:column;gap:9px;z-index:15}.inspect-effect-rack .damage-modifier{width:38px;height:38px}.inspect-effect-rack .damage-modifier i{width:21px;height:18px}.raw-card-art{position:relative}.mon-effects-dialog{width:min(430px,calc(100vw - 40px));box-sizing:border-box;border:1px solid #dce8ef;border-radius:25px;padding:25px;background:linear-gradient(#fff,#f1f7fb);color:#263e52;box-shadow:0 18px 55px #0d283854;max-height:80dvh;overflow:auto}.mon-effects-dialog::backdrop{background:#10263865}.mon-effects-dialog h2{font-size:21px;margin:8px 0 20px}.effect-owner{color:#7b95a6}.mon-effect-row{display:flex;gap:14px;padding:15px 0;border-top:1px solid #dbe6ed;text-align:left}.effect-row-symbol{display:grid;place-items:center;flex:0 0 30px;width:30px;height:30px;border:1px solid #e5edf2;border-radius:50%;background:white;box-shadow:0 2px 4px #17384b18}.mon-effect-row h3{font-size:16px;margin:0 0 7px}.mon-effect-row p{font-size:14px;line-height:1.6;margin:0 0 6px}.mon-effect-row small{font-size:12px;color:#6c889a}.mon-effects-dialog>button{display:block;min-width:130px;margin:20px auto 0;border:0;border-radius:25px;background:#31c4d3;color:white;padding:12px 25px}@media(max-width:650px){#battlePage .modifier-rack{top:18px;gap:4px}#battlePage .table-card.active .modifier-rack{top:24px}#battlePage .damage-modifier{width:21px;height:21px}#battlePage .damage-modifier i{width:12px;height:10px}}`;
   if(window.requestAnimationFrame){
   // 卡盒展示与封面选择，仅保存展示信息。
   const deckColors={'无':'#4387A9','草':'#49A969','火':'#D35727','水':'#629BE7','光':'#379FE7','恶':'#B74177','钢':'#55C19F','龙':'#D73B57','电':'#E5BB1F','幻':'#B79FE7','斗':'#E78737'};
